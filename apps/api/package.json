@@ -1,0 +1,31 @@
+{
+  "name": "@thataway/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "module": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "warm": "bun run scripts/warm.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@elysia/cors": "2.0.0-beta.1",
+    "@elysia/openapi": "2.0.0-beta.4",
+    "@thataway/db": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.4",
+    "elysia": "2.0.0-beta.29",
+    "pg": "^8.23.1",
+    "pg-boss": "^12.37.1",
+    "typebox": "^1.3.36",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@thataway/tsconfig": "workspace:*",
+    "@types/bun": "^1.4.2",
+    "@types/pg": "^8.23.1",
+    "typescript": "^7.0.2"
+  }
+}

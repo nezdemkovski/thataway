@@ -1,0 +1,4 @@
+{
+  "extends": "@thataway/tsconfig/bun.json",
+  "include": ["src", "drizzle.config.ts"]
+}

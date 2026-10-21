@@ -1,0 +1,29 @@
+{
+  "name": "thataway",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --env-mode=loose",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "db:generate": "turbo run db:generate --env-mode=loose --filter=@thataway/db",
+    "db:migrate": "turbo run db:migrate --env-mode=loose --filter=@thataway/db",
+    "db:studio": "bun run --cwd packages/db db:studio",
+    "db:up": "docker compose -f docker-compose.dev.yml up -d",
+    "db:down": "docker compose -f docker-compose.dev.yml down",
+    "warm": "bun run --cwd apps/api warm"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
+    "turbo": "^2.11.7"
+  },
+  "packageManager": "bun@1.4.2"
+}

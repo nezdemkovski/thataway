@@ -1,0 +1,31 @@
+{
+  "name": "@thataway/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Postgres schema, migrations and the API ⇄ worker job contract",
+  "type": "module",
+  "exports": {
+    "./schema": "./src/schema.ts",
+    "./enums": "./src/enums.ts",
+    "./jobs": "./src/jobs.ts",
+    "./migrate": "./src/migrate.ts"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun --env-file=../../apps/api/.env run src/migrate.ts",
+    "db:check": "drizzle-kit check",
+    "db:studio": "bun --env-file=../../apps/api/.env --bun drizzle-kit studio",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "drizzle-orm": "1.0.0-rc.4",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@thataway/tsconfig": "workspace:*",
+    "@types/bun": "^1.4.2",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "1.0.0-rc.4",
+    "typescript": "^7.0.2"
+  }
+}
