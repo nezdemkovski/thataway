@@ -18,8 +18,18 @@ element as `anchorX` puts it; below it the raw model output and the cut-out. Rig
 and the negative prompt exactly as the model gets them, and the history of runs; a run can be
 shown again, its spec loaded back into the form, or copied as JSON.
 
+Above the plane, the sprite with depth: after every run Depth Pro (`mflux-save-depth`, about
+ten seconds) measures the raw picture, `depth.py` cuts the map to the sprite and stretches it
+to the landmark's own range, and a WebGL view displaces each pixel by its depth toward a
+small turn (`yaw`) or tilt (`pitch`), moving the amber rim with it, so the flat picture reads
+as a miniature that turns a few degrees with the map. `amplitude` is how far the nearest
+point moves at full turn (a few percent is the honest range; beyond it the gaps show),
+`lightAngle` and `rim` drive the relighting, `squash` the shadow under its feet, "sway"
+animates it as if walking by, and the depth map can be shown instead of the picture. Runs
+made before this have a "Compute depth" button.
+
 Every run lands in `runs/<time>-<place>/` with `spec.json`, `prompt.txt`, `negative.txt`,
-`reference.jpg`, `raw.png`, `cut.png`, `final.png` and `meta.json`; the folder is not
+`reference.jpg`, `raw.png`, `cut.png`, `final.png`, `raw_depth.png`, `depth.png` and `meta.json`; the folder is not
 committed. The model needs the Mac to itself: pause the art worker's launchd agent while
 tuning (`launchctl bootout gui/$(id -u)/cloud.nezdemkovski.thataway.art-worker`), or two
 pictures will fight for memory.

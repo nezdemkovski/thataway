@@ -35,6 +35,8 @@ export interface RunMeta {
   raw: string;
   cut: string;
   final: string;
+  /** The depth map aligned with `final`, 255 nearest, once computed */
+  depth?: string;
   spec: ArtSpec;
   prompt: string;
   negativePrompt: string;

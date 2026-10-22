@@ -28,6 +28,8 @@ const config = {
   rembgBin: process.env.REMBG_BIN ?? `${home}/.local/bin/rembg`,
   pythonBin: process.env.PYTHON_BIN ?? `${home}/.local/share/uv/tools/rembg/bin/python`,
   postprocessScript: join(root, "..", "art-worker", "postprocess.py"),
+  depthScript: join(root, "depth.py"),
+  mfluxDepthBin: process.env.MFLUX_DEPTH_BIN ?? `${home}/.local/bin/mflux-save-depth`,
 };
 
 const json = (data: unknown, status = 200) =>
@@ -139,13 +141,41 @@ const generate = async ({ spec }: RunRequest): Promise<RunMeta> => {
       negativePrompt,
     };
     await writeFile(join(dir, "meta.json"), JSON.stringify(meta, null, 2));
-    return meta;
+    // Depth is a bonus: a failure here keeps the picture
+    try {
+      return await computeDepth(id);
+    } catch (error) {
+      console.warn(`depth failed for ${id}: ${String(error)}`);
+      return meta;
+    }
   } catch (error) {
     await rm(dir, { recursive: true, force: true });
     throw error;
   } finally {
     busy = false;
   }
+};
+
+/** Depth Pro on the raw picture, cut to the sprite: what the parallax view displaces by. */
+const computeDepth = async (id: string): Promise<RunMeta> => {
+  const dir = join(runsDir, id);
+  const meta = JSON.parse(await readFile(join(dir, "meta.json"), "utf8")) as RunMeta;
+  // mflux writes <name>_depth.png next to the input
+  await run(config.mfluxDepthBin, ["--image-path", join(dir, "raw.png")], dir);
+  await run(
+    config.pythonBin,
+    [
+      config.depthScript,
+      join(dir, "raw_depth.png"),
+      join(dir, "cut.png"),
+      join(dir, "final.png"),
+      join(dir, "depth.png"),
+    ],
+    dir,
+  );
+  meta.depth = `/runs/${id}/depth.png`;
+  await writeFile(join(dir, "meta.json"), JSON.stringify(meta, null, 2));
+  return meta;
 };
 
 const listRuns = async (): Promise<RunMeta[]> => {
@@ -208,6 +238,11 @@ Bun.serve({
       }
       if (url.pathname === "/api/generate" && request.method === "POST") {
         return json(await generate((await request.json()) as RunRequest));
+      }
+      if (url.pathname === "/api/depth" && request.method === "POST") {
+        const { id } = (await request.json()) as { id: string };
+        if (!/^[\w-]+$/.test(id)) return json({ error: "bad id" }, 400);
+        return json(await computeDepth(id));
       }
       if (url.pathname === "/api/runs") {
         return json(await listRuns());

@@ -34,4 +34,5 @@ export const api = {
   render: (spec: ArtSpec) => post<RenderedPrompt>("/api/render", { spec }),
   generate: (spec: ArtSpec) => post<RunMeta>("/api/generate", { spec }),
   runs: () => get<RunMeta[]>("/api/runs"),
+  depth: (id: string) => post<RunMeta>("/api/depth", { id }),
 };

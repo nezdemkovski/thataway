@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlacePick, RenderedPrompt, RunMeta } from "../shared/types";
 import { api, type Defaults } from "./api";
 import { MapPlane } from "./MapPlane";
+import { DEFAULT_CONTROLS, type ParallaxControls, ParallaxView } from "./ParallaxView";
 
 const STYLE_FIELDS: (keyof Omit<ArtStyle, "avoid">)[] = [
   "medium",
@@ -47,6 +48,36 @@ export function App() {
   const [styleOpen, setStyleOpen] = useState(false);
   const startedAt = useRef(0);
   const [elapsed, setElapsed] = useState(0);
+  const [controls, setControls] = useState<ParallaxControls>(DEFAULT_CONTROLS);
+  const [sway, setSway] = useState(true);
+  const [depthBusy, setDepthBusy] = useState(false);
+
+  // A slow sway stands in for walking around the place
+  useEffect(() => {
+    if (!sway) return;
+    let frame = 0;
+    const start = performance.now();
+    const tick = () => {
+      const t = (performance.now() - start) / 1000;
+      setControls((c) => ({ ...c, yaw: Math.sin(t * 0.7), pitch: Math.sin(t * 0.31) * 0.4 }));
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [sway]);
+
+  const computeDepth = async (run: RunMeta) => {
+    setDepthBusy(true);
+    try {
+      const updated = await api.depth(run.id);
+      setRuns((r) => r.map((x) => (x.id === updated.id ? updated : x)));
+      setShown(updated);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDepthBusy(false);
+    }
+  };
 
   useEffect(() => {
     api
@@ -379,6 +410,81 @@ export function App() {
                 {new Date(shown.startedAt).toLocaleString()}
               </span>
             </div>
+            <section className="rounded-xl border border-white/8 bg-[radial-gradient(rgba(255,255,255,0.13)_1.5px,transparent_1.5px)] [background-size:48px_48px] p-4">
+              {shown.depth ? (
+                <div className="flex gap-4">
+                  <ParallaxView
+                    color={shown.final}
+                    depth={shown.depth}
+                    controls={controls}
+                    size={420}
+                  />
+                  <div className="flex w-56 flex-col gap-2 text-xs">
+                    <label className="flex items-center gap-2 normal-case tracking-normal">
+                      <input
+                        type="checkbox"
+                        className="w-auto"
+                        checked={sway}
+                        onChange={(e) => setSway(e.target.checked)}
+                      />
+                      sway (as if walking by)
+                    </label>
+                    {(
+                      [
+                        ["yaw", -1, 1, 0.01],
+                        ["pitch", -1, 1, 0.01],
+                        ["amplitude", 0, 0.12, 0.001],
+                        ["lightAngle", -180, 180, 1],
+                        ["rim", 0, 1.5, 0.01],
+                        ["squash", 0.55, 0.95, 0.01],
+                      ] as [keyof ParallaxControls, number, number, number][]
+                    ).map(([key, min, max, step]) => (
+                      <div key={key}>
+                        <label className="flex justify-between">
+                          <span>{key}</span>
+                          <span className="text-secondary">
+                            {Number(controls[key]).toFixed(key === "amplitude" ? 3 : 2)}
+                          </span>
+                        </label>
+                        <input
+                          type="range"
+                          min={min}
+                          max={max}
+                          step={step}
+                          value={Number(controls[key])}
+                          disabled={sway && (key === "yaw" || key === "pitch")}
+                          onChange={(e) =>
+                            setControls((c) => ({ ...c, [key]: Number(e.target.value) }))
+                          }
+                        />
+                      </div>
+                    ))}
+                    <label className="flex items-center gap-2 normal-case tracking-normal">
+                      <input
+                        type="checkbox"
+                        className="w-auto"
+                        checked={controls.showDepth}
+                        onChange={(e) =>
+                          setControls((c) => ({ ...c, showDepth: e.target.checked }))
+                        }
+                      />
+                      show the depth map
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 text-sm text-tertiary">
+                  No depth map for this run yet.
+                  <button
+                    onClick={() => computeDepth(shown)}
+                    disabled={depthBusy}
+                    className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-secondary hover:text-label disabled:opacity-50"
+                  >
+                    {depthBusy ? "Computing…" : "Compute depth (Depth Pro, ~15 s)"}
+                  </button>
+                </div>
+              )}
+            </section>
             <MapPlane src={shown.final} anchorX={shown.anchorX} />
             <div className="grid grid-cols-2 gap-3">
               <figure>
