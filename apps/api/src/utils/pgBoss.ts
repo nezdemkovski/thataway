@@ -1,6 +1,6 @@
 import { PgBoss } from "pg-boss";
 
-import { ALL_QUEUES } from "@thataway/db/jobs";
+import { ALL_QUEUES, QUEUE_POLICIES } from "@thataway/db/jobs";
 import { pool } from "@/db/postgres";
 import { createLogger } from "@/utils/logger";
 import { LogNamespace } from "@/utils/enums";
@@ -21,9 +21,18 @@ const startBoss = async (): Promise<PgBoss> => {
 
   await boss.start();
 
-  // pg-boss >= 10 refuses send()/work() on queues that were never created
+  // pg-boss >= 10 refuses send()/work() on queues that were never created. A policy cannot
+  // be changed in place, so a queue created with another one is dropped and made again.
   for (const name of ALL_QUEUES) {
-    await boss.createQueue(name);
+    const policy = QUEUE_POLICIES[name];
+    const existing = await boss.getQueue(name);
+    if (existing && existing.policy !== policy) {
+      logger.warn("recreating queue with a new policy", { queue: name, policy });
+      await boss.deleteQueue(name);
+    }
+    if (!existing || existing.policy !== policy) {
+      await boss.createQueue(name, { policy });
+    }
   }
 
   return boss;

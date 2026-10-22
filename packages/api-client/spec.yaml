@@ -5,7 +5,7 @@ openapi: 3.0.3
 info:
   title: Thataway API
   description: Places worth walking to around a point, most notable first.
-  version: 0.1.1
+  version: 0.1.2
 servers:
   - url: https://thataway.nezdemkovski.cloud
 tags:

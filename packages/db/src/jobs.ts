@@ -8,6 +8,16 @@ export const QUEUES = {
 
 export const ALL_QUEUES = Object.values(QUEUES);
 
+/** pg-boss queue policies we use (its `QueuePolicy` is a string union). */
+export enum QueuePolicy {
+  /** One job per singletonKey, queued or active: a tile is filled once however many ask */
+  Exclusive = "exclusive",
+}
+
+export const QUEUE_POLICIES: Record<(typeof ALL_QUEUES)[number], QueuePolicy> = {
+  [QUEUES.FILL_TILE]: QueuePolicy.Exclusive,
+};
+
 export interface FillTileJob {
   /** Geohash of the tile, at TILE_PRECISION characters */
   geohash: string;

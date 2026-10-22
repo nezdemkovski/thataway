@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 
 import { TileStatus } from "@thataway/db/enums";
 import { FillTileJob, QUEUES, TILE_PRECISION, TILE_TTL_DAYS } from "@thataway/db/jobs";
@@ -18,6 +18,8 @@ const logger = createLogger(LogNamespace.Tiles);
 /** How long GET /places waits for a first fill before answering with what it has. */
 const FIRST_FILL_BUDGET_MS = 4_000;
 const POLL_MS = 300;
+/** A tile a worker took this recently is being filled; asking again would only queue a twin. */
+const FILLING_GRACE_MS = 10 * 60 * 1000;
 
 export const TileService = {
   /** The tile a point falls in. */
@@ -65,15 +67,21 @@ export const TileService = {
     return geohashes.filter((hash) => !fresh.has(hash));
   },
 
-  /** Records the tiles as wanted and queues a fill for each, once; `first` jumps the queue. */
+  /**
+   * Records the tiles as wanted and queues a fill for each, once; `first` jumps the queue.
+   * A tile a worker is already on is left alone: pg-boss only folds duplicates while the
+   * first job still waits, and the walker asks again every few seconds while it warms.
+   */
   async requestFill(geohashes: string[], force = false, first?: string): Promise<void> {
     if (geohashes.length === 0) return;
     await db
       .insert(tile)
       .values(geohashes.map((geohash) => ({ geohash })))
       .onConflictDoNothing();
+    const filling = force ? [] : await this.fillingTiles(geohashes);
     const boss = await getBoss();
     for (const geohash of geohashes) {
+      if (filling.includes(geohash)) continue;
       const job: FillTileJob = { geohash, force };
       // One job per tile at a time, however many people ask for it
       await boss.send(QUEUES.FILL_TILE, job, {
@@ -85,6 +93,21 @@ export const TileService = {
         expireInSeconds: 600,
       });
     }
+  },
+
+  /** Tiles among `geohashes` a worker took within the grace period. */
+  async fillingTiles(geohashes: string[]): Promise<string[]> {
+    const rows = await db
+      .select({ geohash: tile.geohash })
+      .from(tile)
+      .where(
+        and(
+          inArray(tile.geohash, geohashes),
+          eq(tile.status, TileStatus.Filling),
+          gt(tile.requestedAt, new Date(Date.now() - FILLING_GRACE_MS)),
+        ),
+      );
+    return rows.map((row) => row.geohash);
   },
 
   /**
@@ -100,14 +123,17 @@ export const TileService = {
       current.fetchedAt &&
       Date.now() - current.fetchedAt.getTime() < TILE_TTL_DAYS * 24 * 3600 * 1000
     ) {
+      logger.debug("tile still fresh", { geohash });
       return;
     }
+    logger.info("filling tile", { geohash });
+    // requested_at marks when this fill was taken, so a twin request can tell it is under way
     await db
       .insert(tile)
       .values({ geohash, status: TileStatus.Filling })
       .onConflictDoUpdate({
         target: tile.geohash,
-        set: { status: TileStatus.Filling, error: null },
+        set: { status: TileStatus.Filling, error: null, requestedAt: new Date() },
       });
 
     const wikidata = new WikidataClient();
