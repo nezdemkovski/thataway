@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type { RunMeta } from "../shared/types";
-import { DEFAULT_MAP, MapEmulation, type MapSettings } from "./MapEmulation";
+import { DEFAULT_MAP, MapEmulation, type MapSettings, TurnMode } from "./MapEmulation";
 import { type ParallaxControls, ParallaxView } from "./ParallaxView";
 import { PRESETS, SwayMode, applyPreset, matchingPreset } from "./presets";
 
@@ -100,23 +100,36 @@ export function ParallaxPanel({
             {t === Tab.Map ? "On the map" : "Studio"}
           </button>
         ))}
-        <span className="ml-auto text-tertiary">
-          {tab === Tab.Map
-            ? "the turn and the tilt drive the parallax, as the app would"
-            : "something moves on its own:"}
-        </span>
-        {tab === Tab.Studio && (
-          <select
-            className="w-auto"
-            value={sway}
-            onChange={(e) => setSway(e.target.value as SwayMode)}
-          >
-            {Object.values(SwayMode).map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
+        {tab === Tab.Map ? (
+          <>
+            <span className="ml-auto text-tertiary">turn:</span>
+            {Object.values(TurnMode).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setMap((m) => ({ ...m, turnMode: mode }))}
+                className={`rounded-full px-2.5 py-1 ${
+                  map.turnMode === mode ? "bg-raised text-label" : "text-tertiary hover:text-label"
+                }`}
+              >
+                {mode === TurnMode.Manual ? "manual (drag)" : `auto (${map.turnSpeed}°/s)`}
+              </button>
             ))}
-          </select>
+          </>
+        ) : (
+          <>
+            <span className="ml-auto text-tertiary">something moves on its own:</span>
+            <select
+              className="w-auto"
+              value={sway}
+              onChange={(e) => setSway(e.target.value as SwayMode)}
+            >
+              {Object.values(SwayMode).map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </>
         )}
       </div>
 
@@ -219,9 +232,9 @@ export function ParallaxPanel({
                   onChange={(e) => setMap((m) => ({ ...m, distance: Number(e.target.value) }))}
                 />
               </div>
-              <div>
+              <div className={map.turnMode === TurnMode.Auto ? "" : "opacity-40"}>
                 <label className="flex justify-between">
-                  <span>turn speed</span>
+                  <span>turn speed (auto)</span>
                   <span className="text-secondary">{map.turnSpeed}°/s</span>
                 </label>
                 <input

@@ -9,20 +9,29 @@ import { type ParallaxControls, ParallaxView } from "./ParallaxView";
  * on its own or by dragging sideways, as in the simulator; the parallax follows the turn
  * (a transient, capped, decaying) and the tilt, which is how the app would drive it.
  */
+export enum TurnMode {
+  /** Drag sideways to turn, as in the simulator */
+  Manual = "manual",
+  /** The map turns at `turnSpeed` on its own */
+  Auto = "auto",
+}
+
 export interface MapSettings {
+  turnMode: TurnMode;
   /** Degrees clockwise from north, where the place is */
   bearing: number;
   /** Metres away */
   distance: number;
   /** The sprite's role on the map: plain, named, or the locked one */
   role: "plain" | "named" | "locked";
-  /** Degrees per second the map turns on its own; 0 to drag it yourself */
+  /** Degrees per second the map turns in auto mode */
   turnSpeed: number;
   /** Degrees of turn that give full parallax */
   turnForFullYaw: number;
 }
 
 export const DEFAULT_MAP: MapSettings = {
+  turnMode: TurnMode.Manual,
   bearing: 20,
   distance: 180,
   role: "named",
@@ -78,7 +87,7 @@ export function MapEmulation({
       const dt = (now - last) / 1000;
       last = now;
       setHeading((h) => {
-        const next = settings.turnSpeed ? (h + settings.turnSpeed * dt) % 360 : h;
+        const next = settings.turnMode === TurnMode.Auto ? (h + settings.turnSpeed * dt) % 360 : h;
         // A low-pass copy of the heading: the difference is how fast you are turning
         let diff = next - smoothed.current;
         if (diff > 180) diff -= 360;
@@ -92,7 +101,7 @@ export function MapEmulation({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [settings.turnSpeed, settings.turnForFullYaw]);
+  }, [settings.turnMode, settings.turnSpeed, settings.turnForFullYaw]);
 
   // Tilt: the squash says how flat the phone is held
   const pitch = Math.max(-1, Math.min(1, (controls.squash - 0.75) / 0.2));
