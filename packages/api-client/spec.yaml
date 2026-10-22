@@ -5,7 +5,7 @@ openapi: 3.0.3
 info:
   title: Thataway API
   description: Places worth walking to around a point, most notable first.
-  version: 0.1.2
+  version: 0.2.0
 servers:
   - url: https://thataway.nezdemkovski.cloud
 tags:
@@ -37,8 +37,9 @@ paths:
       summary: Places around a point, most notable first
       description: >-
         Asks for the geohash tile under the point and its neighbours. Tiles nobody has visited
-        yet are filled on the spot, within a few seconds; when that takes longer the answer is
-        partial and `warming` is true: ask again in a few seconds.
+        yet are filled on the spot: the places arrive within a few seconds, their page views
+        and photos a little later. Until all of it has landed `warming` is true: ask again in
+        a few seconds.
       parameters:
         - name: lat
           in: query
@@ -187,7 +188,7 @@ components:
       properties:
         warming:
           type: boolean
-          description: Tiles around the point are still being filled; ask again in a few seconds
+          description: Places, page views or photos around the point are still on their way; ask again in a few seconds
         places:
           type: array
           items:

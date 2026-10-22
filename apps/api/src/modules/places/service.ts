@@ -29,7 +29,7 @@ export interface PlaceDTO {
 type PlaceRow = Record<string, unknown> & PlaceDTO;
 
 export interface PlacesResult {
-  /** Tiles around the point are still being filled: ask again in a few seconds */
+  /** Places, page views or photos around the point are still on their way: ask again soon */
   warming: boolean;
   places: PlaceDTO[];
 }
@@ -41,7 +41,7 @@ export const PlacesService = {
     radius: number,
     limit: number,
   ): Promise<PlacesResult> {
-    const { ready } = await TileService.ensureAround(latitude, longitude);
+    const { warming } = await TileService.ensureAround(latitude, longitude);
     const point = sql`ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography`;
     // Fame first: how many languages write about it, lifted by English page views and by a
     // heritage listing; then distance taxes it, about 4x the fame per kilometre.
@@ -60,7 +60,7 @@ export const PlacesService = {
       LIMIT ${limit}
     `);
     return {
-      warming: !ready,
+      warming,
       places: rows.rows.map((row): PlaceDTO => ({
         id: row.id,
         name: row.name,

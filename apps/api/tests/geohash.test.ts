@@ -5,6 +5,7 @@ import {
   geohashBounds,
   geohashNeighbourhood,
   geohashesCovering,
+  quadrants,
 } from "@/utils/geohash";
 
 describe("geohash", () => {
@@ -34,5 +35,17 @@ describe("geohash", () => {
     const cells = geohashesCovering({ south: 50.03, west: 14.35, north: 50.12, east: 14.5 }, 5);
     expect(cells.length).toBeGreaterThan(4);
     expect(cells).toContain("u2fkb");
+  });
+
+  test("quadrants tile the box without gaps or overlap", () => {
+    const box = { south: 50, west: 14, north: 50.1, east: 14.2 };
+    const parts = quadrants(box);
+    expect(parts).toHaveLength(4);
+    expect(Math.min(...parts.map((b) => b.south))).toBe(box.south);
+    expect(Math.max(...parts.map((b) => b.north))).toBe(box.north);
+    expect(Math.min(...parts.map((b) => b.west))).toBe(box.west);
+    expect(Math.max(...parts.map((b) => b.east))).toBe(box.east);
+    const area = (b: typeof box) => (b.north - b.south) * (b.east - b.west);
+    expect(parts.reduce((sum, b) => sum + area(b), 0)).toBeCloseTo(area(box));
   });
 });

@@ -32,6 +32,8 @@ export const tile = pgTable("tile", {
     .default(TileStatus.Pending),
   // When the fill finished; a tile older than TILE_TTL_DAYS is refilled on the next visit
   fetchedAt: timestamp("fetched_at", { withTimezone: true }),
+  // When page views and photo credits last landed; null while the enrich job is still due
+  enrichedAt: timestamp("enriched_at", { withTimezone: true }),
   // When the tile was last asked for or taken by a worker
   requestedAt: timestamp("requested_at", { withTimezone: true }).defaultNow().notNull(),
   placeCount: integer("place_count").default(0).notNull(),

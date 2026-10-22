@@ -32,7 +32,8 @@ export const place = t.Object({
 /** Body of GET /places. */
 export const placesResponse = t.Object({
   warming: t.Boolean({
-    description: "Tiles around the point are still being filled; ask again in a few seconds",
+    description:
+      "Places, page views or photos around the point are still on their way; ask again in a few seconds",
   }),
   places: t.Array(place),
 });

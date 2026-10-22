@@ -1,7 +1,7 @@
 import { getConfig } from "@/config";
 import { HttpHeader, LogNamespace } from "@/utils/enums";
 import { TooManyRequestsError } from "@/utils/errors";
-import type { BoundingBox } from "@/utils/geohash";
+import { type BoundingBox, quadrants } from "@/utils/geohash";
 import { createLogger } from "@/utils/logger";
 
 import { ALL_ROOT_IDS } from "./roots";
@@ -34,6 +34,14 @@ interface SparqlResponse {
 
 const ENDPOINT = "https://query.wikidata.org/sparql";
 const PAUSE_MS = 400;
+/** Classes per roots query, and how many such queries run at once (the service allows five). */
+const ROOTS_BATCH = 50;
+const ROOTS_PARALLEL = 3;
+/** How many times a box is cut in four when the query service cannot answer it in 60 s. */
+const MAX_SPLITS = 2;
+
+/** The query service gave up on the query, not on us: a smaller box will do. */
+class QueryTimeout extends Error {}
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -48,9 +56,27 @@ export class WikidataClient {
   /**
    * Every item with coordinates inside the box that at least `minSitelinks` language editions
    * write about. One query per tile; grouping by item folds multiple classes, images and
-   * coordinates into one row.
+   * coordinates into one row. A box too dense for the service's 60 s (a capital's centre) is
+   * cut in four and asked for piece by piece.
    */
-  async itemsInBox(box: BoundingBox, minSitelinks = 2): Promise<WikidataItem[]> {
+  async itemsInBox(box: BoundingBox, minSitelinks = 2, splits = 0): Promise<WikidataItem[]> {
+    try {
+      return await this.itemsInOneBox(box, minSitelinks);
+    } catch (error) {
+      if (!(error instanceof QueryTimeout) || splits >= MAX_SPLITS) throw error;
+      logger.warn("box too dense for one query, splitting", { box, splits: splits + 1 });
+      const seen = new Map<string, WikidataItem>();
+      for (const part of quadrants(box)) {
+        for (const item of await this.itemsInBox(part, minSitelinks, splits + 1)) {
+          seen.set(item.id, item);
+        }
+        await sleep(PAUSE_MS);
+      }
+      return [...seen.values()];
+    }
+  }
+
+  private async itemsInOneBox(box: BoundingBox, minSitelinks: number): Promise<WikidataItem[]> {
     const query = `
       SELECT ?item ?sitelinks
         (SAMPLE(?coord) AS ?point)
@@ -100,35 +126,46 @@ export class WikidataClient {
 
   /**
    * For each class, which of our root classes it sits under in the subclass tree, plus its
-   * English label. A hundred classes per query.
+   * English label. Fifty classes per query, a few queries in flight: walking P279* is the
+   * slow part of a first visit to a big city (Paris brings 550 classes nobody has resolved).
    */
   async rootsOf(
     classIds: string[],
   ): Promise<Map<string, { label: string | null; roots: string[] }>> {
     const result = new Map<string, { label: string | null; roots: string[] }>();
     for (const id of classIds) result.set(id, { label: null, roots: [] });
-    for (let start = 0; start < classIds.length; start += 100) {
-      const batch = classIds.slice(start, start + 100);
-      const query = `
-        SELECT ?class ?root (SAMPLE(?enLabel) AS ?label) WHERE {
-          VALUES ?class { ${batch.map((id) => `wd:${id}`).join(" ")} }
-          OPTIONAL { ?class rdfs:label ?enLabel . FILTER(LANG(?enLabel) = "en") }
-          OPTIONAL {
-            VALUES ?root { ${ALL_ROOT_IDS.map((id) => `wd:${id}`).join(" ")} }
-            ?class wdt:P279* ?root .
-          }
+    const batches: string[][] = [];
+    for (let start = 0; start < classIds.length; start += ROOTS_BATCH) {
+      batches.push(classIds.slice(start, start + ROOTS_BATCH));
+    }
+    for (let start = 0; start < batches.length; start += ROOTS_PARALLEL) {
+      const wave = batches.slice(start, start + ROOTS_PARALLEL);
+      const answers = await Promise.all(wave.map((batch) => this.rootsBatch(batch)));
+      for (const rows of answers) {
+        for (const row of rows) {
+          if (!row.class) continue;
+          const entry = result.get(entityId(row.class.value));
+          if (!entry) continue;
+          if (row.label?.value) entry.label = row.label.value;
+          if (row.root?.value) entry.roots.push(entityId(row.root.value));
         }
-        GROUP BY ?class ?root`;
-      for (const row of await this.sparql(query)) {
-        if (!row.class) continue;
-        const entry = result.get(entityId(row.class.value));
-        if (!entry) continue;
-        if (row.label?.value) entry.label = row.label.value;
-        if (row.root?.value) entry.roots.push(entityId(row.root.value));
       }
       await sleep(PAUSE_MS);
     }
     return result;
+  }
+
+  private rootsBatch(batch: string[]): Promise<SparqlBinding[]> {
+    return this.sparql(`
+      SELECT ?class ?root (SAMPLE(?enLabel) AS ?label) WHERE {
+        VALUES ?class { ${batch.map((id) => `wd:${id}`).join(" ")} }
+        OPTIONAL { ?class rdfs:label ?enLabel . FILTER(LANG(?enLabel) = "en") }
+        OPTIONAL {
+          VALUES ?root { ${ALL_ROOT_IDS.map((id) => `wd:${id}`).join(" ")} }
+          ?class wdt:P279* ?root .
+        }
+      }
+      GROUP BY ?class ?root`);
   }
 
   private async sparql(query: string, attempt = 0): Promise<SparqlBinding[]> {
@@ -151,9 +188,11 @@ export class WikidataClient {
       throw new TooManyRequestsError("Wikidata asked us to slow down", retryAfter);
     }
     if (!response.ok) {
-      throw new Error(
-        `Wikidata answered ${response.status}: ${(await response.text()).slice(0, 200)}`,
-      );
+      const text = await response.text();
+      if (response.status === 500 && text.includes("TimeoutException")) {
+        throw new QueryTimeout("Wikidata query timed out");
+      }
+      throw new Error(`Wikidata answered ${response.status}: ${text.slice(0, 200)}`);
     }
     const body = (await response.json()) as SparqlResponse;
     return body.results.bindings;

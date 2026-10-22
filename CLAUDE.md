@@ -57,9 +57,12 @@ The database is the source of truth; Wikipedia only fills it.
   under an excluded root (person, event, settlement, organisation, street, river, station, ...).
   The cache only knows the roots that existed when a class was resolved: after editing
   `roots.ts`, `TRUNCATE wikidata_class` and refill (`bun run warm -- --bbox ... --force`). Wikipedia only adds
-  five-day page views by title, Commons the thumbnail with author and licence. Rows are upserted
-  into `place` with a PostGIS point; the fill runs as a pg-boss job (`fill-tile`, one at a time,
-  singleton per tile, the walker's own tile first).
+  Rows are upserted into `place` with a PostGIS point and the tile is served from then on; the
+  fill runs as a pg-boss job (`fill-tile`, one at a time, exclusive per tile, the walker's own
+  tile first). A centre too dense for one SPARQL query (Paris) is cut in four and asked for
+  piece by piece. A second job (`enrich-tile`) then adds Wikipedia's five-day page views by
+  title and the Commons thumbnail with author and licence, and stamps `tile.enriched_at`;
+  `warming` in the answer stays true until that has landed.
 - **Serving** (`src/modules/places/service.ts`): `ST_DWithin` around the point, ordered in SQL by
   `0.8·ln(sitelinks+1) + 0.4·ln(views+1) + 0.5·heritage − km·0.6`.
 - Routes are file-based in `src/routes/` (one file per method, options before the handler),

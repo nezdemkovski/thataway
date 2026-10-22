@@ -120,3 +120,15 @@ export const geohashesCovering = (box: BoundingBox, precision: number): string[]
   }
   return [...cells];
 };
+
+/** The box cut in four, for a query the endpoint cannot answer in one go. */
+export const quadrants = (box: BoundingBox): BoundingBox[] => {
+  const midLatitude = (box.south + box.north) / 2;
+  const midLongitude = (box.west + box.east) / 2;
+  return [
+    { south: box.south, west: box.west, north: midLatitude, east: midLongitude },
+    { south: box.south, west: midLongitude, north: midLatitude, east: box.east },
+    { south: midLatitude, west: box.west, north: box.north, east: midLongitude },
+    { south: midLatitude, west: midLongitude, north: box.north, east: box.east },
+  ];
+};

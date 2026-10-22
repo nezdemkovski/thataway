@@ -1,7 +1,13 @@
-import { and, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 
 import { TileStatus } from "@thataway/db/enums";
-import { FillTileJob, QUEUES, TILE_PRECISION, TILE_TTL_DAYS } from "@thataway/db/jobs";
+import {
+  EnrichTileJob,
+  FillTileJob,
+  QUEUES,
+  TILE_PRECISION,
+  TILE_TTL_DAYS,
+} from "@thataway/db/jobs";
 import { db, place, tile } from "@/db/postgres";
 import { CommonsClient } from "@/modules/commons/client";
 import { ClassService } from "@/modules/wikidata/classes";
@@ -28,24 +34,25 @@ export const TileService = {
   },
 
   /**
-   * Makes sure the tile under a point and its neighbours are filled or being filled. Returns
-   * whether everything around is ready; when it isn't, the first fill is given a few seconds.
+   * Makes sure the tile under a point and its neighbours are filled or being filled. The first
+   * fill is given a few seconds; `warming` stays true while places are still missing or their
+   * page views and photos have not landed yet, so the walker asks again in a moment.
    */
-  async ensureAround(latitude: number, longitude: number): Promise<{ ready: boolean }> {
+  async ensureAround(latitude: number, longitude: number): Promise<{ warming: boolean }> {
     const here = this.tileOf(latitude, longitude);
     const wanted = geohashNeighbourhood(here);
-    const stale = await this.staleTiles(wanted);
-    if (stale.length === 0) return { ready: true };
-
-    // The tile under the walker first; the neighbours can follow
-    await this.requestFill(stale, false, here);
-
-    const deadline = Date.now() + FIRST_FILL_BUDGET_MS;
-    while (Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-      if ((await this.staleTiles(wanted)).length === 0) return { ready: true };
+    let stale = await this.staleTiles(wanted);
+    if (stale.length > 0) {
+      // The tile under the walker first; the neighbours can follow
+      await this.requestFill(stale, false, here);
+      const deadline = Date.now() + FIRST_FILL_BUDGET_MS;
+      while (stale.length > 0 && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+        stale = await this.staleTiles(wanted);
+      }
     }
-    return { ready: false };
+    if (stale.length > 0) return { warming: true };
+    return { warming: (await this.enrichingTiles(wanted)).length > 0 };
   },
 
   /** Tiles among `geohashes` that have no fresh fill. */
@@ -95,6 +102,22 @@ export const TileService = {
     }
   },
 
+  /** Filled tiles among `geohashes` whose page views and photos are still on their way. */
+  async enrichingTiles(geohashes: string[]): Promise<string[]> {
+    const rows = await db
+      .select({ geohash: tile.geohash })
+      .from(tile)
+      .where(
+        and(
+          inArray(tile.geohash, geohashes),
+          eq(tile.status, TileStatus.Ready),
+          isNull(tile.enrichedAt),
+          gt(tile.requestedAt, new Date(Date.now() - FILLING_GRACE_MS)),
+        ),
+      );
+    return rows.map((row) => row.geohash);
+  },
+
   /** Tiles among `geohashes` a worker took within the grace period. */
   async fillingTiles(geohashes: string[]): Promise<string[]> {
     const rows = await db
@@ -113,7 +136,8 @@ export const TileService = {
   /**
    * Replaces the tile's places with what Wikidata has inside it: items with coordinates that
    * at least two language editions write about, minus people, events, cities, companies and
-   * streets by class. Wikipedia adds page views, Commons the image credit.
+   * streets by class. The map can draw from this; page views and photo credits follow in
+   * `enrich`, queued at the end, so a first visit waits for one query, not three services.
    */
   async fill(geohash: string, force = false): Promise<void> {
     const [current] = await db.select().from(tile).where(eq(tile.geohash, geohash));
@@ -149,13 +173,6 @@ export const TileService = {
         return kind ? [{ item, kind }] : [];
       });
 
-      const wikipedia = new WikipediaClient();
-      const views = await wikipedia.pageviews(
-        kept.flatMap(({ item }) => (item.enwikiTitle ? [item.enwikiTitle] : [])),
-      );
-      const credits = await new CommonsClient().credits(
-        kept.flatMap(({ item }) => (item.imageFile ? [item.imageFile] : [])),
-      );
       logger.info("tile fetched", { geohash, items: items.length, places: kept.length });
 
       await db.transaction(async (tx) => {
@@ -164,7 +181,6 @@ export const TileService = {
             .insert(place)
             .values(
               kept.map(({ item, kind }) => {
-                const credit = item.imageFile ? credits.get(item.imageFile) : undefined;
                 return {
                   id: item.id,
                   name: item.name,
@@ -178,12 +194,7 @@ export const TileService = {
                   sitelinks: item.sitelinks,
                   heritage: item.heritage,
                   enwikiTitle: item.enwikiTitle,
-                  views: item.enwikiTitle ? (views.get(item.enwikiTitle) ?? 0) : 0,
-                  viewsUpdatedAt: new Date(),
                   imageFile: item.imageFile,
-                  imageUrl: credit?.url ?? null,
-                  imageAuthor: credit?.author ?? null,
-                  imageLicense: credit?.license ?? null,
                 };
               }),
             )
@@ -201,12 +212,12 @@ export const TileService = {
                 sitelinks: sql`excluded.sitelinks`,
                 heritage: sql`excluded.heritage`,
                 enwikiTitle: sql`excluded.enwiki_title`,
-                views: sql`excluded.views`,
-                viewsUpdatedAt: sql`excluded.views_updated_at`,
                 imageFile: sql`excluded.image_file`,
-                imageUrl: sql`excluded.image_url`,
-                imageAuthor: sql`excluded.image_author`,
-                imageLicense: sql`excluded.image_license`,
+                // Views and credits stay from last time; a changed photo loses its credit
+                // until `enrich` fetches the new one
+                imageUrl: sql`CASE WHEN excluded.image_file IS DISTINCT FROM ${place.imageFile} THEN NULL ELSE ${place.imageUrl} END`,
+                imageAuthor: sql`CASE WHEN excluded.image_file IS DISTINCT FROM ${place.imageFile} THEN NULL ELSE ${place.imageAuthor} END`,
+                imageLicense: sql`CASE WHEN excluded.image_file IS DISTINCT FROM ${place.imageFile} THEN NULL ELSE ${place.imageLicense} END`,
               },
             });
         }
@@ -215,12 +226,23 @@ export const TileService = {
           .set({
             status: TileStatus.Ready,
             fetchedAt: new Date(),
+            enrichedAt: null,
             placeCount: kept.filter(
               ({ item }) => this.tileOf(item.latitude, item.longitude) === geohash,
             ).length,
             error: null,
           })
           .where(eq(tile.geohash, geohash));
+      });
+      const job: EnrichTileJob = { geohash };
+      await (
+        await getBoss()
+      ).send(QUEUES.ENRICH_TILE, job, {
+        singletonKey: geohash,
+        retryLimit: 3,
+        retryDelay: 60,
+        retryBackoff: true,
+        expireInSeconds: 600,
       });
     } catch (error) {
       logger.exception(error, { geohash });
@@ -231,6 +253,49 @@ export const TileService = {
           error: error instanceof Error ? error.message : String(error),
         })
         .where(eq(tile.geohash, geohash));
+      throw error;
+    }
+  },
+
+  /**
+   * The second half of a fill: English page views for the ranking and the Commons credit for
+   * every photo that has none yet. The tile is served meanwhile; `warming` tells the walker
+   * to ask again once this has landed.
+   */
+  async enrich(geohash: string): Promise<void> {
+    const rows = await db
+      .select({
+        id: place.id,
+        enwikiTitle: place.enwikiTitle,
+        imageFile: place.imageFile,
+        imageUrl: place.imageUrl,
+      })
+      .from(place)
+      .where(eq(place.geohash, geohash));
+    const titles = rows.flatMap((row) => (row.enwikiTitle ? [row.enwikiTitle] : []));
+    const files = rows.flatMap((row) => (row.imageFile && !row.imageUrl ? [row.imageFile] : []));
+    try {
+      const views = await new WikipediaClient().pageviews(titles);
+      const credits = await new CommonsClient().credits(files);
+      logger.info("tile enriched", { geohash, places: rows.length, photos: files.length });
+      await db.transaction(async (tx) => {
+        for (const row of rows) {
+          const credit = row.imageFile ? credits.get(row.imageFile) : undefined;
+          await tx
+            .update(place)
+            .set({
+              views: row.enwikiTitle ? (views.get(row.enwikiTitle) ?? 0) : 0,
+              viewsUpdatedAt: new Date(),
+              ...(credit
+                ? { imageUrl: credit.url, imageAuthor: credit.author, imageLicense: credit.license }
+                : {}),
+            })
+            .where(eq(place.id, row.id));
+        }
+        await tx.update(tile).set({ enrichedAt: new Date() }).where(eq(tile.geohash, geohash));
+      });
+    } catch (error) {
+      logger.exception(error, { geohash });
       throw error;
     }
   },
