@@ -8,13 +8,18 @@ export const artJobParams = t.Object({
   id: t.String({ pattern: "^Q\\d+$", description: "Wikidata id of the place" }),
 });
 
-/** What the worker gets to draw: the place, the full prompt, and the photo to draw from. */
+/**
+ * What the worker gets to draw: the place, the spec (style, subject, render settings, as
+ * data), the prompt rendered from it, and the photo to draw from.
+ */
 export const artJob = t.Object({
   placeId: t.String(),
   name: t.String(),
   description: t.Nullable(t.String()),
   kind: t.Enum(PlaceKind),
+  spec: t.Object({}, { additionalProperties: true }),
   prompt: t.String(),
+  negativePrompt: t.String(),
   referenceImageUrl: t.Nullable(t.String()),
   referenceImageLicense: t.Nullable(t.String()),
 });

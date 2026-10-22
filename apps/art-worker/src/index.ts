@@ -4,6 +4,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import type { ArtSpec } from "@thataway/db/art";
 import { PlaceKind } from "@thataway/db/enums";
 
 import { getConfig } from "./config";
@@ -15,7 +16,9 @@ interface ArtJob {
   name: string;
   description: string | null;
   kind: PlaceKind;
+  spec: ArtSpec;
   prompt: string;
+  negativePrompt: string;
   referenceImageUrl: string | null;
   referenceImageLicense: string | null;
 }

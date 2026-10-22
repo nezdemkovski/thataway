@@ -1,13 +1,14 @@
 import { createHash } from "node:crypto";
 import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 
+import type { ArtSpec } from "@thataway/db/art";
 import { ArtStatus, PlaceKind } from "@thataway/db/enums";
 import { db, place, placeArt } from "@/db/postgres";
 import { ArtContentType, ArtModel, LogNamespace } from "@/utils/enums";
 import { BadRequestError, NotFoundError } from "@/utils/errors";
 import { createLogger } from "@/utils/logger";
 
-import { buildArtPrompt } from "./prompt";
+import { buildArtSpec, renderArtPrompt } from "./prompt";
 import { ArtStorage } from "./storage";
 
 const logger = createLogger(LogNamespace.Art);
@@ -22,7 +23,9 @@ export interface ArtJob {
   name: string;
   description: string | null;
   kind: PlaceKind;
+  spec: ArtSpec;
   prompt: string;
+  negativePrompt: string;
   referenceImageUrl: string | null;
   referenceImageLicense: string | null;
 }
@@ -102,18 +105,22 @@ export const ArtService = {
         .limit(1)
         .for("update", { skipLocked: true });
       if (!next) return null;
-      const prompt = buildArtPrompt({
+      const spec = buildArtSpec({
         name: next.name,
         description: next.description,
         kind: next.kind,
+        imageUrl: next.imageUrl,
+        imageLicense: next.imageLicense,
       });
+      const { prompt, negativePrompt } = renderArtPrompt(spec);
       await tx
         .update(placeArt)
         .set({
           status: ArtStatus.Generating,
           claimedAt: new Date(),
           attempts: sql`${placeArt.attempts} + 1`,
-          prompt,
+          // The spec as data, so the picture can be drawn again from its record
+          prompt: JSON.stringify(spec),
           sourceImageUrl: next.imageUrl,
           sourceImageLicense: next.imageLicense,
         })
@@ -124,7 +131,9 @@ export const ArtService = {
         name: next.name,
         description: next.description,
         kind: next.kind,
+        spec,
         prompt,
+        negativePrompt,
         referenceImageUrl: next.imageUrl,
         referenceImageLicense: next.imageLicense,
       };

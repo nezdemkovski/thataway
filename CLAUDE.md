@@ -71,8 +71,9 @@ The database is the source of truth; Wikipedia only fills it.
   `GET /places` queues the most notable places of an answer that have none; the art worker
   (`apps/art-worker`, on the Mac Studio) claims them over `/art/jobs/*` with a bearer token,
   draws with Qwen Image 2.1 through mflux, cuts the background with rembg and hands the PNG
-  in; the API stores it and points `place.art_url` at it. The prompt is `src/modules/art/style.txt`
-  plus a per-kind line (`prompt.ts`); `docs/art-prompt.md` explains it. `bun run art:sweep`
+  in; the API stores it and points `place.art_url` at it. The prompt is an art spec, data in
+  `packages/db/src/art.ts` (style, subject, render) rendered to text by `renderArtPrompt` and
+  kept in `place_art.prompt`; `docs/art-prompt.md` explains it. `bun run art:sweep`
   queues the best places without a picture, `bun run art -- --place Q… --file x.png` stores one
   made by hand.
 - Routes are file-based in `src/routes/` (one file per method, options before the handler),
