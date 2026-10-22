@@ -4,6 +4,7 @@ import type { RunMeta } from "../shared/types";
 import { DEFAULT_MAP, MapEmulation, type MapSettings, TurnMode } from "./MapEmulation";
 import { type ParallaxControls, ParallaxView } from "./ParallaxView";
 import { PRESETS, SwayMode, applyPreset, matchingPreset } from "./presets";
+import { DEFAULT_LOOK, type TokenLook, TokenPreview } from "./TokenPreview";
 
 enum Tab {
   Studio = "studio",
@@ -34,6 +35,7 @@ export function ParallaxPanel({
   const [sway, setSway] = useState<SwayMode>(PRESETS[2].sway);
   const [map, setMap] = useState<MapSettings>(DEFAULT_MAP);
   const [showSliders, setShowSliders] = useState(false);
+  const [look, setLook] = useState<TokenLook>(DEFAULT_LOOK);
   const activePreset = matchingPreset(controls, sway);
 
   // In the studio tab something moves on its own; on the map the turn and the tilt do it
@@ -143,11 +145,51 @@ export function ParallaxPanel({
           onYaw={fromMap}
         />
       ) : (
-        <div className="flex items-end justify-center gap-10 rounded-xl border border-white/8 bg-[radial-gradient(rgba(255,255,255,0.13)_1.5px,transparent_1.5px)] [background-size:48px_48px] p-6">
-          <ParallaxView color={run.final} depth={run.depth} controls={controls} size={420} />
-          <div className="flex items-end gap-5 pb-1">
-            <ParallaxView color={run.final} depth={run.depth} controls={controls} size={132} />
-            <ParallaxView color={run.final} depth={run.depth} controls={controls} size={56} />
+        <div className="flex flex-col gap-3">
+          <div className="flex items-end justify-center gap-10 rounded-xl border border-white/8 bg-[radial-gradient(rgba(255,255,255,0.13)_1.5px,transparent_1.5px)] [background-size:48px_48px] p-6">
+            <ParallaxView color={run.final} depth={run.depth} controls={controls} size={360} />
+            <div className="flex items-end gap-5 pb-1">
+              <ParallaxView color={run.final} depth={run.depth} controls={controls} size={132} />
+              <ParallaxView color={run.final} depth={run.depth} controls={controls} size={56} />
+            </div>
+          </div>
+          {/* As a token: the square around the tallest point, lifted and edged, at the map's sizes */}
+          <div className="flex items-start gap-4">
+            <TokenPreview src={run.final} anchorX={run.anchorX} look={look} />
+            <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <label className="col-span-2 flex items-center gap-2 normal-case tracking-normal">
+                <input
+                  type="checkbox"
+                  className="w-auto"
+                  checked={look.square}
+                  onChange={(e) => setLook((l) => ({ ...l, square: e.target.checked }))}
+                />
+                cut to a square around the tallest point
+              </label>
+              {(
+                [
+                  ["contrast", 0.8, 2, 0.01],
+                  ["brightness", 0.8, 1.6, 0.01],
+                  ["edge", 0, 3, 0.1],
+                  ["rim", 0, 1, 0.01],
+                ] as [keyof TokenLook, number, number, number][]
+              ).map(([key, min, max, step]) => (
+                <div key={key}>
+                  <label className="flex justify-between">
+                    <span>{key}</span>
+                    <span className="text-secondary">{Number(look[key]).toFixed(2)}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={Number(look[key])}
+                    onChange={(e) => setLook((l) => ({ ...l, [key]: Number(e.target.value) }))}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

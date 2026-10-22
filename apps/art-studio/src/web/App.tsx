@@ -330,6 +330,22 @@ export function App() {
         {error && <p className="text-xs text-red-400">{error}</p>}
 
         <section>
+          <label>Style</label>
+          <div className="mb-2 flex gap-1">
+            {Object.entries(defaults.styles).map(([name, style]) => (
+              <button
+                key={name}
+                onClick={() => update((s) => ({ ...s, style }))}
+                className={`rounded-full border px-2.5 py-1 text-[11px] ${
+                  JSON.stringify(spec.style) === JSON.stringify(style)
+                    ? "border-accent text-accent"
+                    : "border-white/10 text-secondary hover:text-label"
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => setStyleOpen((o) => !o)}
             className="text-sm text-secondary hover:text-label"

@@ -114,6 +114,73 @@ export const ART_STYLE: ArtStyle = {
   ],
 };
 
+/**
+ * The map style: the picture lives at 56 to 96 points on the dark plane, so it is an icon of
+ * the landmark, not a portrait of it: one volume, big simple forms, a strong silhouette, a
+ * square footprint, contrast that survives being tiny.
+ */
+export const ART_STYLE_TOKEN: ArtStyle = {
+  medium:
+    "A single landmark as a chunky, simplified 3D miniature icon for a map marker about 64 pixels tall: one compact volume like a well-made board-game piece, instantly recognizable as this building and nothing else.",
+  camera:
+    "A straight-on elevation of the landmark's most recognizable side, near-orthographic, the camera at the middle of its height. No isometric, three-quarter, aerial or end-on view.",
+  framing:
+    "Exactly one structure, never a street, a skyline, a panorama or neighbouring buildings. The silhouette fits a square: as tall as it is wide, or taller. A wide landmark is cut down to its tallest, most distinctive part (a tower with two spans, a facade's central bay with its dome), the rest left out of the frame. The tallest element stands on the vertical centre line and reaches 90% of the square's height.",
+  base: "One straight horizontal bottom edge across the full width of the piece. No ground plane, no pedestal, no cast shadow outside the piece.",
+  background:
+    "A perfectly flat, uniform, very dark background, hex #0A0B0D, with nothing else in it: no gradient, no vignette, no glow, no floor, no scenery.",
+  form: "Big, simple, slightly exaggerated volumes with softly rounded edges; towers a little taller and thicker than life, roofs a little steeper, arches a little wider, so the shape reads at 48 pixels. Only the three or four features that make this landmark itself; no windows rows, no mouldings, no tracery, no texture. Clear separation of roof, wall and openings as flat tonal groups.",
+  materials:
+    "Matte, clean surfaces without texture or weathering. Stone a light warm beige, roofs a dark charcoal slate, openings almost black, metal a muted warm brass. No gloss, no photorealism.",
+  light:
+    "Key light from the upper right, soft but with strong contrast between lit and shadowed faces. A bold, clean amber rim light, hex #FFB224, along the right and top silhouette edges, two or three pixels wide at 64 pixels, so the piece separates from a dark background. A thin, very dark edge on the left and bottom silhouette.",
+  palette:
+    "High contrast, few tones: light stone around #C9B48F in the light and #7A6A55 in shadow, charcoal roofs #2A2D31, near-black openings #121416, brass #8C7A4E. Low saturation apart from the amber rim, which is the one vivid colour.",
+  avoid: [
+    "street",
+    "skyline",
+    "panorama",
+    "multiple buildings",
+    "neighbouring buildings",
+    "wide composition",
+    "fine detail",
+    "texture",
+    "weathering",
+    "rows of windows",
+    "photorealistic",
+    "cartoon face",
+    "flat vector illustration",
+    "heavy black outlines",
+    "sky",
+    "clouds",
+    "ground plane",
+    "pedestal",
+    "cast shadow",
+    "vignette",
+    "glow",
+    "people",
+    "vehicles",
+    "text",
+    "labels",
+    "logos",
+    "watermarks",
+    "saturated blue or green surfaces",
+    "blurry",
+  ],
+};
+
+export enum ArtStyleName {
+  /** The amber-rim architectural miniature: detailed, for large views */
+  Miniature = "miniature",
+  /** The chunky icon: for the map at 56 to 96 points */
+  Token = "token",
+}
+
+export const ART_STYLES: Record<ArtStyleName, ArtStyle> = {
+  [ArtStyleName.Miniature]: ART_STYLE,
+  [ArtStyleName.Token]: ART_STYLE_TOKEN,
+};
+
 /** The one sentence per kind that decides the composition when nobody has written a better one. */
 export const KIND_SHOW: Record<PlaceKind, { show: string; tallest: string }> = {
   [PlaceKind.Church]: {

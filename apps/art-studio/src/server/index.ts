@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import {
   ART_SPEC_VERSION,
   ART_STYLE,
+  ART_STYLES,
   type ArtSpec,
   KIND_SHOW,
   REFERENCE_USE,
@@ -221,6 +222,7 @@ Bun.serve({
         return json({
           version: ART_SPEC_VERSION,
           style: ART_STYLE,
+          styles: ART_STYLES,
           kinds: KIND_SHOW,
           referenceUse: REFERENCE_USE,
         });

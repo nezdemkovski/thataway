@@ -6,6 +6,7 @@ import type { PlacePick, RenderedPrompt, RunMeta } from "../shared/types";
 export interface Defaults {
   version: number;
   style: ArtStyle;
+  styles: Record<string, ArtStyle>;
   kinds: Record<PlaceKind, { show: string; tallest: string }>;
   referenceUse: string;
 }
