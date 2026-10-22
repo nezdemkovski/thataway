@@ -8,6 +8,7 @@ import { routes } from "@/routes";
 import { HttpHeader, RoutePath } from "@/utils/enums";
 import { AppError, TooManyRequestsError } from "@/utils/errors";
 import logger from "@/utils/logger";
+import { ArtStorage } from "@/modules/art/storage";
 import { getBoss, stopBoss } from "@/utils/pgBoss";
 import { registerFillTile } from "@/workers/fillTile";
 import pkg from "../package.json" with { type: "json" };
@@ -25,6 +26,7 @@ if (!wikimediaContact) {
 const boss = await getBoss();
 await registerFillTile(boss);
 logger.info("pg-boss started");
+await ArtStorage.ensureBucket();
 
 const app = new Elysia({ name: "thataway-api" })
   .use(

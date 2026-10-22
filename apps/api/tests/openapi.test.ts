@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { PlaceKind, enumValues } from "@thataway/db/enums";
 import type { PlaceDTO } from "@/modules/places/service";
-import { HealthStatus } from "@/utils/enums";
+import { ArtModel, HealthStatus } from "@/utils/enums";
 
 // The contract the clients are generated from must say what the routes say.
 const specPath = new URL("../../../packages/api-client/spec.yaml", import.meta.url);
@@ -43,6 +43,10 @@ describe("packages/api-client/spec.yaml", () => {
     expect(schemas.HealthStatus?.enum).toEqual(enumValues(HealthStatus));
   });
 
+  test("names every art model", () => {
+    expect(schemas.ArtModel?.enum).toEqual(enumValues(ArtModel));
+  });
+
   test("describes every field of a place", () => {
     expect(Object.keys(schemas.Place?.properties ?? {}).toSorted()).toEqual(
       Object.keys(placeFields).toSorted(),
@@ -53,7 +57,13 @@ describe("packages/api-client/spec.yaml", () => {
     const operations = Object.values(spec.paths).flatMap((methods) =>
       Object.values(methods).map((operation) => operation.operationId),
     );
-    expect(operations.toSorted()).toEqual(["getArt", "getHealth", "getPlaces"]);
+    expect(operations.toSorted()).toEqual([
+      "claimArtJob",
+      "completeArtJob",
+      "failArtJob",
+      "getHealth",
+      "getPlaces",
+    ]);
   });
 
   test("carries the API version", async () => {

@@ -65,10 +65,16 @@ The database is the source of truth; Wikipedia only fills it.
   `warming` in the answer stays true until that has landed.
 - **Serving** (`src/modules/places/service.ts`): `ST_DWithin` around the point, ordered in SQL by
   `0.8·ln(sitelinks+1) + 0.4·ln(views+1) + 0.5·heritage − km·0.6`.
-- **Illustrations**: `place_art` holds a generated PNG per place (alpha, landmark facing the
-  viewer; the prompt is in `docs/art-prompt.md`), served by `GET /art/:id.png?v=<hash>` with a
-  forever cache; `place.art_url` points at it. `bun run art -- --place Q204871 --file x.png`
-  stores one; `PUBLIC_URL` says which host the URL carries.
+- **Illustrations**: `place_art` is the queue and the record (status, priority, model, seed,
+  prompt, anchor); the pixels live in the `thataway-art` S3 bucket (RustFS on the NAS; locally
+  the one in `docker-compose.dev.yml`), created with a public-read policy when the API starts.
+  `GET /places` queues the most notable places of an answer that have none; the art worker
+  (`apps/art-worker`, on the Mac Studio) claims them over `/art/jobs/*` with a bearer token,
+  draws with Qwen Image 2.1 through mflux, cuts the background with rembg and hands the PNG
+  in; the API stores it and points `place.art_url` at it. The prompt is `src/modules/art/style.txt`
+  plus a per-kind line (`prompt.ts`); `docs/art-prompt.md` explains it. `bun run art:sweep`
+  queues the best places without a picture, `bun run art -- --place Q… --file x.png` stores one
+  made by hand.
 - Routes are file-based in `src/routes/` (one file per method, options before the handler),
   logic in `src/modules/*/service.ts`, request schemas in `src/modules/*/model.ts`. Services
   throw `AppError` subclasses (`src/utils/errors.ts`); the global `.error()` in `src/index.ts`

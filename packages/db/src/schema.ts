@@ -10,13 +10,9 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
-import { PlaceKind, PlaceSource, TileStatus, enumValues } from "./enums";
+import { ArtStatus, PlaceKind, PlaceSource, TileStatus, enumValues } from "./enums";
 
 /** A PostGIS point on the sphere, written and read as WKT. */
-const bytea = customType<{ data: Buffer; driverData: Buffer }>({
-  dataType: () => "bytea",
-});
-
 const geographyPoint = customType<{ data: string; driverData: string }>({
   dataType() {
     return "geography(Point, 4326)";
@@ -112,22 +108,41 @@ export const wikidataClass = pgTable("wikidata_class", {
 // ─── Illustrations ───────────────────────────────────────────────────────────
 
 /**
- * The generated illustration of a place, served by GET /art/:id. Kept in the database for
- * now: a few hundred kilobytes per place, and nothing else to run or back up.
+ * A place's generated illustration: queued by the API, drawn by the art worker on a Mac,
+ * stored in the S3 bucket. The row is the queue and the record of what was made; the pixels
+ * are at `place.art_url`.
  */
-export const placeArt = pgTable("place_art", {
-  placeId: text("place_id")
-    .primaryKey()
-    .references(() => place.id, { onDelete: "cascade" }),
-  contentType: text("content_type").notNull(),
-  bytes: bytea("bytes").notNull(),
-  width: integer("width").notNull(),
-  height: integer("height").notNull(),
-  // Short hash of the bytes, part of art_url so a replaced picture gets a new URL
-  version: text("version").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
+export const placeArt = pgTable(
+  "place_art",
+  {
+    placeId: text("place_id")
+      .primaryKey()
+      .references(() => place.id, { onDelete: "cascade" }),
+    status: text("status", { enum: enumValues(ArtStatus) })
+      .notNull()
+      .default(ArtStatus.Queued),
+    // Higher first when the worker asks for work: the place's fame when it was queued
+    priority: doublePrecision("priority").default(0).notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    error: text("error"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    // What was made, once ready
+    objectKey: text("object_key"),
+    model: text("model"),
+    seed: integer("seed"),
+    prompt: text("prompt"),
+    width: integer("width"),
+    height: integer("height"),
+    // Where the tallest element stands, 0..1 across the picture: the map puts the point there
+    anchorX: doublePrecision("anchor_x"),
+    // The photo the picture was drawn from and its licence, for the record
+    sourceImageUrl: text("source_image_url"),
+    sourceImageLicense: text("source_image_license"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (t) => [index("place_art_status_idx").on(t.status, sql`${t.priority} DESC`)],
+);

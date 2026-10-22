@@ -51,3 +51,12 @@ export class ServiceUnavailableError extends AppError {
     super(message);
   }
 }
+
+export class UnauthorizedError extends AppError {
+  readonly statusCode = 401;
+  readonly errorType = "Unauthorized";
+
+  constructor(message: string = "Authentication required") {
+    super(message);
+  }
+}

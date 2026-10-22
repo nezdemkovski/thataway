@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>cloud.nezdemkovski.thataway.art-worker</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__BUN__</string>
+    <string>run</string>
+    <string>--env-file=.env</string>
+    <string>src/index.ts</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__WORKDIR__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>__HOME__</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/thataway-art-worker.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/thataway-art-worker.log</string>
+</dict>
+</plist>

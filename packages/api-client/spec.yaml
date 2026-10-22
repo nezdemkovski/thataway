@@ -5,12 +5,13 @@ openapi: 3.0.3
 info:
   title: Thataway API
   description: Places worth walking to around a point, most notable first.
-  version: 0.2.1
+  version: 0.3.0
 servers:
   - url: https://thataway.nezdemkovski.cloud
 tags:
   - name: places
   - name: health
+  - name: art-worker
 paths:
   /health:
     get:
@@ -101,40 +102,170 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-  /art/{file}:
-    get:
-      operationId: getArt
-      tags: [places]
-      summary: The generated illustration of a place
-      description: >-
-        A PNG with alpha, the landmark facing the viewer, to stand on the map as a sprite.
-        `Place.artUrl` points here, with a version in the query, so the file behind a URL
-        never changes and may be cached forever.
-      parameters:
-        - name: file
-          in: path
-          required: true
-          description: The place's Wikidata id plus `.png`
-          schema:
-            type: string
-            pattern: '^Q\\d+\\.png$'
-            example: Q204871.png
+  /art/jobs/claim:
+    post:
+      operationId: claimArtJob
+      tags: [art-worker]
+      summary: Take the next place to illustrate
+      description: For the art worker on the Mac, not the app. Needs the worker token.
+      security:
+        - workerToken: []
       responses:
         "200":
-          description: The picture
+          description: The place to draw with the full prompt and the photo to draw from, or null
           content:
-            image/png:
+            application/json:
               schema:
-                type: string
-                format: binary
+                type: object
+                required: [job]
+                properties:
+                  job:
+                    nullable: true
+                    allOf:
+                      - $ref: "#/components/schemas/ArtJob"
+        "401":
+          description: Not the worker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /art/jobs/{id}/complete:
+    post:
+      operationId: completeArtJob
+      tags: [art-worker]
+      summary: Hand in the finished illustration
+      security:
+        - workerToken: []
+      parameters:
+        - $ref: "#/components/parameters/ArtJobId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, model, anchorX, width, height]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PNG with alpha, cut to the landmark
+                model:
+                  $ref: "#/components/schemas/ArtModel"
+                seed:
+                  type: integer
+                anchorX:
+                  type: number
+                  format: double
+                  minimum: 0
+                  maximum: 1
+                  description: Where the tallest element stands, 0..1 across the picture
+                width:
+                  type: integer
+                height:
+                  type: integer
+      responses:
+        "200":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [placeId, artUrl]
+                properties:
+                  placeId:
+                    type: string
+                  artUrl:
+                    type: string
+        "401":
+          description: Not the worker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
-          description: No illustration for this place
+          description: No such job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /art/jobs/{id}/fail:
+    post:
+      operationId: failArtJob
+      tags: [art-worker]
+      summary: Give a job back after a failure
+      security:
+        - workerToken: []
+      parameters:
+        - $ref: "#/components/parameters/ArtJobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [error]
+              properties:
+                error:
+                  type: string
+      responses:
+        "204":
+          description: Noted
+        "401":
+          description: Not the worker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No such job
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 components:
+  securitySchemes:
+    workerToken:
+      type: http
+      scheme: bearer
+      description: The art worker's token, shared through 1Password
+  parameters:
+    ArtJobId:
+      name: id
+      in: path
+      required: true
+      description: The place's Wikidata id
+      schema:
+        type: string
+        pattern: '^Q\\d+$'
+        example: Q204871
   schemas:
+    ArtModel:
+      type: string
+      enum: [qwen-image-2.1-turbo, manual]
+    ArtJob:
+      type: object
+      required: [placeId, name, kind, prompt]
+      properties:
+        placeId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        kind:
+          $ref: "#/components/schemas/PlaceKind"
+        prompt:
+          type: string
+          description: The full prompt, style and place
+        referenceImageUrl:
+          type: string
+          nullable: true
+          description: The Commons photo to draw the shape from
+        referenceImageLicense:
+          type: string
+          nullable: true
     HealthStatus:
       type: string
       enum: [ok, degraded]
@@ -213,7 +344,7 @@ components:
         artUrl:
           type: string
           nullable: true
-          description: The generated illustration (GET /art/{file}), when there is one
+          description: The generated illustration in the art bucket, when there is one
     PlacesResult:
       type: object
       required: [warming, places]

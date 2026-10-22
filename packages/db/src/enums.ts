@@ -29,3 +29,11 @@ export enum PlaceKind {
 export enum PlaceSource {
   Wikidata = "wikidata",
 }
+
+/** Where a place's illustration is on its way from the queue to the bucket. */
+export enum ArtStatus {
+  Queued = "queued",
+  Generating = "generating",
+  Ready = "ready",
+  Failed = "failed",
+}

@@ -1,6 +1,6 @@
 {
   "name": "@thataway/api",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "module": "src/index.ts",
@@ -9,10 +9,12 @@
     "start": "bun run src/index.ts",
     "warm": "bun run scripts/warm.ts",
     "art": "bun run scripts/art.ts",
+    "art:sweep": "bun run scripts/art-sweep.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1155.0",
     "@elysia/cors": "2.0.0-beta.1",
     "@elysia/openapi": "2.0.0-beta.4",
     "@thataway/db": "workspace:*",

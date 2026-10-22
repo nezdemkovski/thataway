@@ -48,8 +48,15 @@ env:
   WIKIMEDIA_CONTACT: https://github.com/nezdemkovski/thataway
   # Migrations run in the init container below, not in the entrypoint
   RUN_MIGRATIONS: "false"
-  # Where clients reach the API: art URLs are built on it (set it to the public hostname)
+  # Where clients reach the API
   PUBLIC_URL: http://localhost:3040
+  # The illustrations' bucket (S3_ACCESS_KEY, S3_SECRET_KEY and ART_WORKER_TOKEN come from the
+  # Secret in envSecretName); empty S3_ENDPOINT turns illustrations off
+  S3_ENDPOINT: ""
+  S3_BUCKET: thataway-art
+  # Where the app reads the bucket from
+  ART_PUBLIC_BASE_URL: ""
+  ART_QUEUE_PER_ANSWER: "8"
 
 # Optional Secret loaded with envFrom (anything you would rather not keep in values)
 envSecretName: ""

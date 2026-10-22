@@ -2,7 +2,13 @@ import { sql } from "drizzle-orm";
 
 import { PlaceKind } from "@thataway/db/enums";
 import { db } from "@/db/postgres";
+import { ArtService } from "@/modules/art/service";
 import { TileService } from "@/modules/tiles/service";
+import { getConfig } from "@/config";
+import { LogNamespace } from "@/utils/enums";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger(LogNamespace.Places);
 
 export interface PlaceDTO {
   /** Wikidata item id, "Q12345" */
@@ -59,25 +65,40 @@ export const PlacesService = {
           - ST_Distance(geom, ${point}) / 1000 * 0.6 DESC
       LIMIT ${limit}
     `);
-    return {
-      warming,
-      places: rows.rows.map((row): PlaceDTO => ({
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        kind: row.kind,
-        latitude: row.latitude,
-        longitude: row.longitude,
-        distance: Math.round(Number(row.distance)),
-        sitelinks: row.sitelinks,
-        heritage: row.heritage,
-        views: row.views,
-        enwikiTitle: row.enwikiTitle,
-        imageUrl: row.imageUrl,
-        imageAuthor: row.imageAuthor,
-        imageLicense: row.imageLicense,
-        artUrl: row.artUrl,
-      })),
-    };
+    const places = rows.rows.map((row): PlaceDTO => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      kind: row.kind,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      distance: Math.round(Number(row.distance)),
+      sitelinks: row.sitelinks,
+      heritage: row.heritage,
+      views: row.views,
+      enwikiTitle: row.enwikiTitle,
+      imageUrl: row.imageUrl,
+      imageAuthor: row.imageAuthor,
+      imageLicense: row.imageLicense,
+      artUrl: row.artUrl,
+    }));
+    // The most notable places here without a picture get one drawn, in the background
+    void this.queueArt(places).catch((error) => logger.exception(error, { operation: "queueArt" }));
+    return { warming, places };
+  },
+
+  async queueArt(places: PlaceDTO[]): Promise<void> {
+    const { artQueuePerAnswer } = getConfig();
+    const candidates = places.filter((p) => p.artUrl === null).slice(0, artQueuePerAnswer);
+    const open = await ArtService.withoutArt(candidates.map((p) => p.id));
+    await ArtService.enqueue(
+      candidates
+        .filter((p) => open.has(p.id))
+        .map((p) => ({
+          id: p.id,
+          priority:
+            0.8 * Math.log(p.sitelinks + 1) + 0.4 * Math.log(p.views + 1) + (p.heritage ? 0.5 : 0),
+        })),
+    );
   },
 };

@@ -1,4 +1,5 @@
-# Local development database with PostGIS. The API runs on the host: `bun run db:up && bun run dev`.
+# Local development database with PostGIS and an S3 (RustFS, as on the homelab's NAS) for the
+# illustrations. The API runs on the host: `bun run db:up && bun run dev`.
 services:
   postgres:
     image: imresamu/postgis:18-3.6
@@ -18,6 +19,23 @@ services:
       timeout: 5s
       retries: 10
 
+  rustfs:
+    image: rustfs/rustfs:1.0.3
+    container_name: thataway-rustfs-dev
+    restart: unless-stopped
+    environment:
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ENABLE: "false"
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-thataway}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-thataway-dev}
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - rustfs-data:/data
+
 volumes:
   postgres-data:
     name: thataway-postgres-data-dev
+  rustfs-data:
+    name: thataway-rustfs-data-dev

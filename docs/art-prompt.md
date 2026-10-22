@@ -29,5 +29,8 @@ Category: <kind>. <what to show: the most recognizable part, which element is th
 Reference for shape only: <imageUrl>
 ```
 
-The pictures are stored at 768 px: `sips -s format png -Z 768 in.webp --out Q204871.png`, then
-`PUBLIC_URL=https://<host> bun run art -- --place Q204871 --file Q204871.png`.
+In the pipeline the style lives in `apps/api/src/modules/art/style.txt` (keep the two in step)
+and the place part is built by `apps/api/src/modules/art/prompt.ts` from the place's name,
+description and kind. The worker swaps the transparent-background sentence for a flat
+`#0A0B0D` ground and cuts it away afterwards with BiRefNet, because no local model paints alpha.
+A picture made by hand goes in with `bun run art -- --place Q204871 --file Q204871.png`.
