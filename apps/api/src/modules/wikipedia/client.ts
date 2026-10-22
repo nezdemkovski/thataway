@@ -1,48 +1,23 @@
 import { getConfig } from "@/config";
 import { HttpHeader, LogNamespace } from "@/utils/enums";
-import { createLogger } from "@/utils/logger";
 import { TooManyRequestsError } from "@/utils/errors";
-import type { BoundingBox } from "@/utils/geohash";
+import { createLogger } from "@/utils/logger";
 
 const logger = createLogger(LogNamespace.Wikipedia);
 
-/** A page as geosearch returns it, before any judgement. */
-export interface WikipediaPage {
-  pageid: number;
-  title: string;
-  description?: string;
-  latitude: number;
-  longitude: number;
-  length: number;
-}
-
-interface GeoResponse {
-  query?: {
-    pages?: {
-      pageid: number;
-      title: string;
-      description?: string;
-      coordinates?: { lat: number; lon: number }[];
-      length?: number;
-    }[];
-  };
-  error?: { code: string; info: string };
-}
-
 interface ViewsResponse {
-  query?: { pages?: { pageid: number; pageviews?: Record<string, number | null> }[] };
+  query?: {
+    normalized?: { from: string; to: string }[];
+    pages?: { title: string; pageviews?: Record<string, number | null> }[];
+  };
   continue?: Record<string, string>;
 }
 
-/** Geosearch gives at most this many pages per box; a box that hits it gets split. */
-export const BOX_LIMIT = 500;
-/** How many times a dense box may be split into quarters before we accept missing pages. */
-const MAX_SPLIT_DEPTH = 4;
-/** Breathing room between calls, so one tile never looks like a scraper. */
 const PAUSE_MS = 250;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** What is left of Wikipedia's role: page views, the fame signal that moves with the news. */
 export class WikipediaClient {
   private readonly endpoint: string;
   private readonly userAgent: string;
@@ -54,74 +29,53 @@ export class WikipediaClient {
   }
 
   /**
-   * Every page with coordinates inside the box. Geosearch answers with the nearest 500, so a
-   * box that fills up is cut into quarters and asked again, down to a few hundred metres.
+   * Views over the last `days` days by article title. Fifty titles per call; under load the
+   * API sometimes answers for only some of them without saying so, so whatever is still
+   * missing is asked for once more in small batches.
    */
-  async pagesInBox(box: BoundingBox, depth = 0): Promise<WikipediaPage[]> {
-    const response = await this.query<GeoResponse>({
-      generator: "geosearch",
-      ggsbbox: `${box.north}|${box.west}|${box.south}|${box.east}`,
-      ggslimit: String(BOX_LIMIT),
-      prop: "coordinates|description|info",
-      colimit: "max",
-    });
-    const pages = (response.query?.pages ?? []).flatMap((page) => {
-      const point = page.coordinates?.[0];
-      if (!point) return [];
-      return [
-        {
-          pageid: page.pageid,
-          title: page.title,
-          description: page.description,
-          latitude: point.lat,
-          longitude: point.lon,
-          length: page.length ?? 0,
-        },
-      ];
-    });
-    if (pages.length < BOX_LIMIT || depth >= MAX_SPLIT_DEPTH) {
-      return pages;
-    }
-    logger.info("box is dense, splitting", { depth, pages: pages.length });
-    const midLat = (box.south + box.north) / 2;
-    const midLon = (box.west + box.east) / 2;
-    const quarters: BoundingBox[] = [
-      { south: box.south, west: box.west, north: midLat, east: midLon },
-      { south: box.south, west: midLon, north: midLat, east: box.east },
-      { south: midLat, west: box.west, north: box.north, east: midLon },
-      { south: midLat, west: midLon, north: box.north, east: box.east },
-    ];
-    const seen = new Map<number, WikipediaPage>();
-    for (const quarter of quarters) {
-      await sleep(PAUSE_MS);
-      for (const page of await this.pagesInBox(quarter, depth + 1)) {
-        seen.set(page.pageid, page);
+  async pageviews(titles: string[], days = 5): Promise<Map<string, number>> {
+    const views = await this.pageviewsBatched(titles, 50, days);
+    const missing = titles.filter((title) => !views.has(title));
+    if (missing.length > 0) {
+      logger.info("retrying page views", { missing: missing.length, of: titles.length });
+      await sleep(PAUSE_MS * 4);
+      for (const [title, total] of await this.pageviewsBatched(missing, 10, days)) {
+        views.set(title, total);
       }
     }
-    return [...seen.values()];
+    return views;
   }
 
-  /** Views over the last `days` days by page id, fifty pages per call. */
-  async pageviews(ids: number[], days = 5): Promise<Map<number, number>> {
-    const views = new Map<number, number>();
-    for (let start = 0; start < ids.length; start += 50) {
-      const batch = ids.slice(start, start + 50);
+  private async pageviewsBatched(
+    titles: string[],
+    size: number,
+    days: number,
+  ): Promise<Map<string, number>> {
+    const views = new Map<string, number>();
+    for (let start = 0; start < titles.length; start += size) {
+      const batch = titles.slice(start, start + size);
       let parameters: Record<string, string> = {
-        pageids: batch.join("|"),
+        titles: batch.join("|"),
         prop: "pageviews",
         pvipdays: String(days),
       };
-      // A reply carries about 500 day-values; fifty pages at five days fit in one, but follow
+      const asked = new Map(batch.map((title) => [title, title]));
+      // A reply carries about 500 day-values; fifty titles at five days fit in one, but follow
       // the continuation just in case.
       for (let round = 0; round < 3; round += 1) {
         const response = await this.query<ViewsResponse>(parameters);
+        for (const { from, to } of response.query?.normalized ?? []) {
+          const original = asked.get(from);
+          if (original) asked.set(to, original);
+        }
         for (const page of response.query?.pages ?? []) {
-          if (page.pageviews) {
+          const title = asked.get(page.title);
+          if (title && page.pageviews) {
             const total = Object.values(page.pageviews).reduce<number>(
               (sum, v) => sum + (v ?? 0),
               0,
             );
-            views.set(page.pageid, total);
+            views.set(title, total);
           }
         }
         if (!response.continue) break;
@@ -147,13 +101,7 @@ export class WikipediaClient {
       const retryAfter = Number(response.headers.get(HttpHeader.RetryAfter)) || 60;
       throw new TooManyRequestsError("Wikipedia asked us to slow down", retryAfter);
     }
-    if (!response.ok) {
-      throw new Error(`Wikipedia answered ${response.status}`);
-    }
-    const body = (await response.json()) as T & { error?: { code: string; info: string } };
-    if (body.error) {
-      throw new Error(`Wikipedia error ${body.error.code}: ${body.error.info}`);
-    }
-    return body;
+    if (!response.ok) throw new Error(`Wikipedia answered ${response.status}`);
+    return (await response.json()) as T;
   }
 }

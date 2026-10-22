@@ -1,8 +1,8 @@
 # Thataway API
 
 The places service behind the Thataway iOS app: what is worth walking to around a point, ranked.
-Wikipedia fills a database lazily, one geohash tile at a time; everyone after the first visitor
-reads from the database.
+Wikidata fills a database lazily, one geohash tile at a time (Wikipedia adds page views, Commons
+the image credits); everyone after the first visitor reads from the database.
 
 ```bash
 bun install

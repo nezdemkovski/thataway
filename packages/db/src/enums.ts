@@ -27,5 +27,5 @@ export enum PlaceKind {
 
 /** Where a place row came from. */
 export enum PlaceSource {
-  Wikipedia = "wikipedia",
+  Wikidata = "wikidata",
 }

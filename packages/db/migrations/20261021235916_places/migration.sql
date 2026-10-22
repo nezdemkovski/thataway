@@ -1,21 +1,22 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
 --> statement-breakpoint
 CREATE TABLE "place" (
-	"id" integer PRIMARY KEY,
-	"source" text DEFAULT 'wikipedia' NOT NULL,
-	"wikidata_id" text,
-	"language" text DEFAULT 'en' NOT NULL,
-	"title" text NOT NULL,
+	"id" text PRIMARY KEY,
+	"source" text DEFAULT 'wikidata' NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
 	"kind" text DEFAULT 'place' NOT NULL,
+	"classes" text[] DEFAULT '{}'::text[] NOT NULL,
 	"latitude" double precision NOT NULL,
 	"longitude" double precision NOT NULL,
 	"geom" geography(Point,4326) NOT NULL,
 	"geohash" text NOT NULL,
+	"sitelinks" integer DEFAULT 0 NOT NULL,
+	"heritage" boolean DEFAULT false NOT NULL,
+	"enwiki_title" text,
 	"views" integer DEFAULT 0 NOT NULL,
 	"views_updated_at" timestamp with time zone,
-	"article_length" integer DEFAULT 0 NOT NULL,
+	"image_file" text,
 	"image_url" text,
 	"image_author" text,
 	"image_license" text,
@@ -33,6 +34,13 @@ CREATE TABLE "tile" (
 	"error" text
 );
 --> statement-breakpoint
+CREATE TABLE "wikidata_class" (
+	"id" text PRIMARY KEY,
+	"label" text,
+	"roots" text[] DEFAULT '{}'::text[] NOT NULL,
+	"resolved_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE INDEX "place_geom_idx" ON "place" USING gist ("geom");--> statement-breakpoint
 CREATE INDEX "place_geohash_idx" ON "place" ("geohash");--> statement-breakpoint
-CREATE INDEX "place_views_idx" ON "place" ("views" DESC);
+CREATE INDEX "place_sitelinks_idx" ON "place" ("sitelinks" DESC);

@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "acba43d5-46b0-4961-af81-1c32c773c09a",
+  "id": "27c8d740-7a7e-443b-b745-ad7a5ec3bfe6",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -19,7 +19,13 @@
       "schema": "public"
     },
     {
-      "type": "integer",
+      "isRlsEnabled": false,
+      "name": "wikidata_class",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "type": "text",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
@@ -36,49 +42,10 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "'wikipedia'",
+      "default": "'wikidata'",
       "generated": null,
       "identity": null,
       "name": "source",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "place"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "wikidata_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "place"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'en'",
-      "generated": null,
-      "identity": null,
-      "name": "language",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "place"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "title",
       "entityType": "columns",
       "schema": "public",
       "table": "place"
@@ -118,6 +85,19 @@
       "generated": null,
       "identity": null,
       "name": "kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "place"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "classes",
       "entityType": "columns",
       "schema": "public",
       "table": "place"
@@ -182,6 +162,45 @@
       "default": "0",
       "generated": null,
       "identity": null,
+      "name": "sitelinks",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "place"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "heritage",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "place"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "enwiki_title",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "place"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
       "name": "views",
       "entityType": "columns",
       "schema": "public",
@@ -201,14 +220,14 @@
       "table": "place"
     },
     {
-      "type": "integer",
+      "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
-      "default": "0",
+      "default": null,
       "generated": null,
       "identity": null,
-      "name": "article_length",
+      "name": "image_file",
       "entityType": "columns",
       "schema": "public",
       "table": "place"
@@ -370,6 +389,58 @@
       "table": "tile"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wikidata_class"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "label",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wikidata_class"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "roots",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wikidata_class"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "resolved_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wikidata_class"
+    },
+    {
       "nameExplicit": true,
       "columns": [
         {
@@ -415,7 +486,7 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "\"views\" DESC",
+          "value": "\"sitelinks\" DESC",
           "isExpression": true,
           "asc": true,
           "nullsFirst": false,
@@ -427,7 +498,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "place_views_idx",
+      "name": "place_sitelinks_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "place"
@@ -450,6 +521,16 @@
       "name": "tile_pkey",
       "schema": "public",
       "table": "tile",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "wikidata_class_pkey",
+      "schema": "public",
+      "table": "wikidata_class",
       "entityType": "pks"
     }
   ],

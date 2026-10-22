@@ -46,14 +46,21 @@ The database is the source of truth; Wikipedia only fills it.
   once someone has been there. `GET /places` asks for the tile under the point and its eight
   neighbours; missing or stale ones (30 days) are queued, and the first caller gets up to four
   seconds for the fill before an answer with `warming: true`.
-- **Filling** (`src/modules/tiles/service.ts`): geosearch by the tile's bounding box, 500 pages
-  per call; a box that fills up is split into quarters (`src/modules/wikipedia/client.ts`).
-  Pages pass `isPlace` (kind word in the Wikidata description, mirrored from the iOS app), get
-  a kind from `guessKind`, and five-day page views in batches of fifty. Rows are upserted into
-  `place` with a PostGIS point; the fill runs as a pg-boss job (`fill-tile`, one at a time,
-  singleton per tile).
+- **Filling** (`src/modules/tiles/service.ts`): one SPARQL box query to Wikidata
+  (`src/modules/wikidata/client.ts`) for every item with coordinates that at least two language
+  editions write about, with its classes, image, heritage status and English article. Classes
+  are walked up the subclass tree to our root classes (`src/modules/wikidata/roots.ts`) and the
+  verdicts cached in `wikidata_class`. A kind root (bridge, square, castle, place of worship, ...)
+  names the glyph and wins outright: Wikidata files bridges and squares under "thoroughfare" and
+  castles under "administrative entity". Only an item matching no kind is dropped when it sits
+  under an excluded root (person, event, settlement, organisation, street, river, station, ...).
+  The cache only knows the roots that existed when a class was resolved: after editing
+  `roots.ts`, `TRUNCATE wikidata_class` and refill (`bun run warm -- --bbox ... --force`). Wikipedia only adds
+  five-day page views by title, Commons the thumbnail with author and licence. Rows are upserted
+  into `place` with a PostGIS point; the fill runs as a pg-boss job (`fill-tile`, one at a time,
+  singleton per tile, the walker's own tile first).
 - **Serving** (`src/modules/places/service.ts`): `ST_DWithin` around the point, ordered in SQL by
-  `log(views+1) + 0.3·log(length) − km·0.6`.
+  `0.8·ln(sitelinks+1) + 0.4·ln(views+1) + 0.5·heritage − km·0.6`.
 - Routes are file-based in `src/routes/` (one file per method, options before the handler),
   logic in `src/modules/*/service.ts`, request schemas in `src/modules/*/model.ts`. Services
   throw `AppError` subclasses (`src/utils/errors.ts`); the global `.error()` in `src/index.ts`

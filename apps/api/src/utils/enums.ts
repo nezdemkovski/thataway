@@ -18,12 +18,15 @@ export enum LogNamespace {
   App = "app",
   PgBoss = "pg-boss",
   Wikipedia = "wikipedia",
+  Wikidata = "wikidata",
   Tiles = "tiles",
   Places = "places",
 }
 
 export enum HttpHeader {
   UserAgent = "User-Agent",
+  Accept = "Accept",
+  ContentType = "Content-Type",
   RetryAfter = "Retry-After",
   CacheControl = "Cache-Control",
 }
