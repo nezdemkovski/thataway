@@ -1,0 +1,8 @@
+apiVersion: v2
+name: thataway-api
+description: "Thataway places API (Elysia on Bun)"
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+annotations:
+  org.opencontainers.image.source: https://github.com/nezdemkovski/thataway

@@ -1,0 +1,103 @@
+name: Publish image and chart
+
+# The chart in charts/thataway-api carries the versions: its appVersion is the image tag and its
+# version the chart tag. The GitOps repo (homelab-gitops) pins both.
+on:
+  push:
+    branches: ["master"]
+    tags: ["v*.*.*"]
+    # Docs and workflow edits must not republish 0.x.y images under a new digest
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "charts/**"
+      - "bun.lock"
+      - "package.json"
+      - "turbo.json"
+  pull_request:
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "charts/**"
+      - "bun.lock"
+      - "package.json"
+      - "turbo.json"
+
+env:
+  REGISTRY: ghcr.io
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.18.4
+
+      - name: Read chart metadata
+        id: chart
+        run: |
+          chart=charts/thataway-api
+          helm lint "$chart"
+          echo "version=$(helm show chart "$chart" | awk '/^version:/{print $2}')" >> "$GITHUB_OUTPUT"
+          echo "app_version=$(helm show chart "$chart" | awk '/^appVersion:/{gsub(/"/, "", $2); print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}-api
+          tags: |
+            type=raw,value=${{ steps.chart.outputs.app_version }},enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=long
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      # Build context is the repository root: the image is pruned with `turbo prune`
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Publish Helm chart
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        run: |
+          chart=charts/thataway-api
+          helm package "$chart" --destination .helm-packages
+          printf '%s' "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+          helm push ".helm-packages/thataway-api-${{ steps.chart.outputs.version }}.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts"

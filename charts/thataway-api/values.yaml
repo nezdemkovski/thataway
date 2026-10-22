@@ -1,0 +1,88 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/nezdemkovski/thataway-api
+  pullPolicy: IfNotPresent
+  # Defaults to the chart's appVersion; Renovate pins `tag: x.y.z@sha256:...` in the GitOps repo
+  tag: ""
+  digest: ""
+
+imagePullSecrets:
+  - name: thataway-ghcr
+
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3040
+
+# Plain configuration, as environment variables
+env:
+  NODE_ENV: production
+  PORT: "3040"
+  LOG_LEVEL: info
+  # Wikimedia asks every client to say who it is and how to reach it
+  WIKIMEDIA_CONTACT: https://github.com/nezdemkovski/thataway
+  # Migrations run in the init container below, not in the entrypoint
+  RUN_MIGRATIONS: "false"
+
+# Optional Secret loaded with envFrom (anything you would rather not keep in values)
+envSecretName: ""
+
+# Environment entries in full Kubernetes form, e.g. POSTGRES_URL from a database Secret:
+#   - name: POSTGRES_URL
+#     valueFrom:
+#       secretKeyRef: { name: thataway-postgres-app, key: uri }
+extraEnv: []
+
+migrations:
+  enabled: true
+  command:
+    - bun
+    - run
+    - ../../packages/db/src/migrate.ts
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
