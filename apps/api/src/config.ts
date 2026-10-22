@@ -6,7 +6,9 @@ const postgresUrl = process.env.POSTGRES_URL;
 // Goes into the User-Agent of every Wikimedia request, as their policy asks
 const wikimediaContact = process.env.WIKIMEDIA_CONTACT;
 const logLevel = process.env.LOG_LEVEL;
+// Where clients reach this API from outside: art URLs are built on it
+const publicUrl = (process.env.PUBLIC_URL ?? `http://localhost:${port}`).replace(/\/$/, "");
 
-const config = { isDev, port, postgresUrl, wikimediaContact, logLevel };
+const config = { isDev, port, postgresUrl, wikimediaContact, logLevel, publicUrl };
 
 export const getConfig = () => config;

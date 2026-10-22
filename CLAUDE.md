@@ -65,6 +65,10 @@ The database is the source of truth; Wikipedia only fills it.
   `warming` in the answer stays true until that has landed.
 - **Serving** (`src/modules/places/service.ts`): `ST_DWithin` around the point, ordered in SQL by
   `0.8·ln(sitelinks+1) + 0.4·ln(views+1) + 0.5·heritage − km·0.6`.
+- **Illustrations**: `place_art` holds a generated PNG per place (alpha, landmark facing the
+  viewer; the prompt is in `docs/art-prompt.md`), served by `GET /art/:id.png?v=<hash>` with a
+  forever cache; `place.art_url` points at it. `bun run art -- --place Q204871 --file x.png`
+  stores one; `PUBLIC_URL` says which host the URL carries.
 - Routes are file-based in `src/routes/` (one file per method, options before the handler),
   logic in `src/modules/*/service.ts`, request schemas in `src/modules/*/model.ts`. Services
   throw `AppError` subclasses (`src/utils/errors.ts`); the global `.error()` in `src/index.ts`

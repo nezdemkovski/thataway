@@ -1,6 +1,6 @@
 {
   "name": "@thataway/api",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "module": "src/index.ts",
@@ -8,6 +8,7 @@
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "warm": "bun run scripts/warm.ts",
+    "art": "bun run scripts/art.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit -p ."
   },

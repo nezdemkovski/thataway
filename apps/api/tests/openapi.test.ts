@@ -53,7 +53,7 @@ describe("packages/api-client/spec.yaml", () => {
     const operations = Object.values(spec.paths).flatMap((methods) =>
       Object.values(methods).map((operation) => operation.operationId),
     );
-    expect(operations.toSorted()).toEqual(["getHealth", "getPlaces"]);
+    expect(operations.toSorted()).toEqual(["getArt", "getHealth", "getPlaces"]);
   });
 
   test("carries the API version", async () => {

@@ -18,7 +18,8 @@
     "db:studio": "bun run --cwd packages/db db:studio",
     "db:up": "docker compose -f docker-compose.dev.yml up -d",
     "db:down": "docker compose -f docker-compose.dev.yml down",
-    "warm": "bun run --cwd apps/api warm"
+    "warm": "bun run --cwd apps/api warm",
+    "art": "bun run --cwd apps/api art"
   },
   "devDependencies": {
     "oxfmt": "^0.72.0",

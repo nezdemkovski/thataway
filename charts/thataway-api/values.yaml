@@ -48,6 +48,8 @@ env:
   WIKIMEDIA_CONTACT: https://github.com/nezdemkovski/thataway
   # Migrations run in the init container below, not in the entrypoint
   RUN_MIGRATIONS: "false"
+  # Where clients reach the API: art URLs are built on it (set it to the public hostname)
+  PUBLIC_URL: http://localhost:3040
 
 # Optional Secret loaded with envFrom (anything you would rather not keep in values)
 envSecretName: ""

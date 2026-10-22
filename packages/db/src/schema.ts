@@ -13,6 +13,10 @@ import {
 import { PlaceKind, PlaceSource, TileStatus, enumValues } from "./enums";
 
 /** A PostGIS point on the sphere, written and read as WKT. */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => "bytea",
+});
+
 const geographyPoint = customType<{ data: string; driverData: string }>({
   dataType() {
     return "geography(Point, 4326)";
@@ -103,4 +107,27 @@ export const wikidataClass = pgTable("wikidata_class", {
   label: text("label"),
   roots: text("roots").array().notNull().default([]),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── Illustrations ───────────────────────────────────────────────────────────
+
+/**
+ * The generated illustration of a place, served by GET /art/:id. Kept in the database for
+ * now: a few hundred kilobytes per place, and nothing else to run or back up.
+ */
+export const placeArt = pgTable("place_art", {
+  placeId: text("place_id")
+    .primaryKey()
+    .references(() => place.id, { onDelete: "cascade" }),
+  contentType: text("content_type").notNull(),
+  bytes: bytea("bytes").notNull(),
+  width: integer("width").notNull(),
+  height: integer("height").notNull(),
+  // Short hash of the bytes, part of art_url so a replaced picture gets a new URL
+  version: text("version").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
 });

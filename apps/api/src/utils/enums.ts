@@ -21,6 +21,11 @@ export enum LogNamespace {
   Wikidata = "wikidata",
   Tiles = "tiles",
   Places = "places",
+  Art = "art",
+}
+
+export enum ArtContentType {
+  Png = "image/png",
 }
 
 export enum HttpHeader {

@@ -5,7 +5,7 @@ openapi: 3.0.3
 info:
   title: Thataway API
   description: Places worth walking to around a point, most notable first.
-  version: 0.2.0
+  version: 0.2.1
 servers:
   - url: https://thataway.nezdemkovski.cloud
 tags:
@@ -101,6 +101,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /art/{file}:
+    get:
+      operationId: getArt
+      tags: [places]
+      summary: The generated illustration of a place
+      description: >-
+        A PNG with alpha, the landmark facing the viewer, to stand on the map as a sprite.
+        `Place.artUrl` points here, with a version in the query, so the file behind a URL
+        never changes and may be cached forever.
+      parameters:
+        - name: file
+          in: path
+          required: true
+          description: The place's Wikidata id plus `.png`
+          schema:
+            type: string
+            pattern: '^Q\\d+\\.png$'
+            example: Q204871.png
+      responses:
+        "200":
+          description: The picture
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No illustration for this place
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -181,7 +213,7 @@ components:
         artUrl:
           type: string
           nullable: true
-          description: The generated illustration, once there is one
+          description: The generated illustration (GET /art/{file}), when there is one
     PlacesResult:
       type: object
       required: [warming, places]
