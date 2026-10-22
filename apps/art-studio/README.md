@@ -18,7 +18,15 @@ element as `anchorX` puts it; below it the raw model output and the cut-out. Rig
 and the negative prompt exactly as the model gets them, and the history of runs; a run can be
 shown again, its spec loaded back into the form, or copied as JSON.
 
-Above the plane, the sprite with depth: after every run Depth Pro (`mflux-save-depth`, about
+Above the plane, the sprite with depth, in two tabs. "On the map" is the app's map, enough of
+it to judge: the squashed plane with its north-up dot grid turning under you, the distance
+rings, the vision cone and your chevron, and the sprite standing on its bearing and distance
+at the size the app gives it (plain, named or locked), with its name tag; the map turns on
+its own or by dragging sideways, and the parallax is driven the way the app would drive it:
+the yaw from how fast you are turning (capped at `turn for full yaw` degrees, fading as the
+turn settles), the pitch from the tilt (`squash`). "Studio" shows the sprite big and at the
+two token sizes, with something moving on its own: the turn, the tilt, both, or the light.
+The presets sit under the picture, the knobs fold out below them. In detail: after every run Depth Pro (`mflux-save-depth`, about
 ten seconds) measures the raw picture, `depth.py` cuts the map to the sprite and stretches it
 to the landmark's own range, and a WebGL view displaces each pixel by its depth toward a
 small turn (`yaw`) or tilt (`pitch`), moving the amber rim with it, so the flat picture reads

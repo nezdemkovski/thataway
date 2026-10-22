@@ -5,8 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlacePick, RenderedPrompt, RunMeta } from "../shared/types";
 import { api, type Defaults } from "./api";
 import { MapPlane } from "./MapPlane";
-import { type ParallaxControls, ParallaxView } from "./ParallaxView";
-import { PRESETS, SwayMode, applyPreset, matchingPreset } from "./presets";
+import { ParallaxPanel } from "./ParallaxPanel";
 
 const STYLE_FIELDS: (keyof Omit<ArtStyle, "avoid">)[] = [
   "medium",
@@ -49,35 +48,7 @@ export function App() {
   const [styleOpen, setStyleOpen] = useState(false);
   const startedAt = useRef(0);
   const [elapsed, setElapsed] = useState(0);
-  const [controls, setControls] = useState<ParallaxControls>(applyPreset(PRESETS[2]));
-  const [sway, setSway] = useState<SwayMode>(PRESETS[2].sway);
   const [depthBusy, setDepthBusy] = useState(false);
-
-  // A slow sway stands in for the map turning, the phone tilting, or the light walking round
-  useEffect(() => {
-    if (sway === SwayMode.None) return;
-    let frame = 0;
-    const start = performance.now();
-    const tick = () => {
-      const t = (performance.now() - start) / 1000;
-      setControls((c) => ({
-        ...c,
-        yaw: sway === SwayMode.Yaw || sway === SwayMode.Both ? Math.sin(t * 0.7) : 0,
-        pitch:
-          sway === SwayMode.Pitch
-            ? Math.sin(t * 0.5)
-            : sway === SwayMode.Both
-              ? Math.sin(t * 0.31) * 0.4
-              : 0,
-        lightAngle: sway === SwayMode.Light ? 30 + Math.sin(t * 0.6) * 80 : c.lightAngle,
-      }));
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [sway]);
-
-  const activePreset = matchingPreset(controls, sway);
 
   const computeDepth = async (run: RunMeta) => {
     setDepthBusy(true);
@@ -423,126 +394,7 @@ export function App() {
                 {new Date(shown.startedAt).toLocaleString()}
               </span>
             </div>
-            <section className="rounded-xl border border-white/8 bg-[radial-gradient(rgba(255,255,255,0.13)_1.5px,transparent_1.5px)] [background-size:48px_48px] p-4">
-              {shown.depth ? (
-                <div className="flex gap-4">
-                  <div className="flex items-end gap-6">
-                    <ParallaxView
-                      color={shown.final}
-                      depth={shown.depth}
-                      controls={controls}
-                      size={380}
-                    />
-                    {/* The same thing at the size it has on the map: the one that matters */}
-                    <div className="flex items-end gap-4 pb-1">
-                      <ParallaxView
-                        color={shown.final}
-                        depth={shown.depth}
-                        controls={controls}
-                        size={132}
-                      />
-                      <ParallaxView
-                        color={shown.final}
-                        depth={shown.depth}
-                        controls={controls}
-                        size={56}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex w-56 flex-col gap-2 text-xs">
-                    <div className="flex flex-wrap gap-1">
-                      {PRESETS.map((preset) => (
-                        <button
-                          key={preset.name}
-                          title={preset.note}
-                          onClick={() => {
-                            setControls(applyPreset(preset));
-                            setSway(preset.sway);
-                          }}
-                          className={`rounded-full border px-2.5 py-1 text-[11px] ${
-                            activePreset?.name === preset.name
-                              ? "border-accent text-accent"
-                              : "border-white/10 text-secondary hover:text-label"
-                          }`}
-                        >
-                          {preset.name}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="min-h-8 text-[11px] leading-snug text-tertiary">
-                      {activePreset?.note ?? "Custom settings"}
-                    </p>
-                    <div>
-                      <label>moves on its own</label>
-                      <select value={sway} onChange={(e) => setSway(e.target.value as SwayMode)}>
-                        {Object.values(SwayMode).map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {(
-                      [
-                        ["yaw", -1, 1, 0.01],
-                        ["pitch", -1, 1, 0.01],
-                        ["amplitude", 0, 0.12, 0.001],
-                        ["lightAngle", -180, 180, 1],
-                        ["rim", 0, 1.5, 0.01],
-                        ["squash", 0.55, 0.95, 0.01],
-                      ] as [keyof ParallaxControls, number, number, number][]
-                    ).map(([key, min, max, step]) => (
-                      <div key={key}>
-                        <label className="flex justify-between">
-                          <span>{key}</span>
-                          <span className="text-secondary">
-                            {Number(controls[key]).toFixed(key === "amplitude" ? 3 : 2)}
-                          </span>
-                        </label>
-                        <input
-                          type="range"
-                          min={min}
-                          max={max}
-                          step={step}
-                          value={Number(controls[key])}
-                          disabled={
-                            ((sway === SwayMode.Yaw || sway === SwayMode.Both) && key === "yaw") ||
-                            ((sway === SwayMode.Pitch || sway === SwayMode.Both) &&
-                              key === "pitch") ||
-                            (sway === SwayMode.Light && key === "lightAngle")
-                          }
-                          onChange={(e) =>
-                            setControls((c) => ({ ...c, [key]: Number(e.target.value) }))
-                          }
-                        />
-                      </div>
-                    ))}
-                    <label className="flex items-center gap-2 normal-case tracking-normal">
-                      <input
-                        type="checkbox"
-                        className="w-auto"
-                        checked={controls.showDepth}
-                        onChange={(e) =>
-                          setControls((c) => ({ ...c, showDepth: e.target.checked }))
-                        }
-                      />
-                      show the depth map
-                    </label>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 text-sm text-tertiary">
-                  No depth map for this run yet.
-                  <button
-                    onClick={() => computeDepth(shown)}
-                    disabled={depthBusy}
-                    className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-secondary hover:text-label disabled:opacity-50"
-                  >
-                    {depthBusy ? "Computing…" : "Compute depth (Depth Pro, ~15 s)"}
-                  </button>
-                </div>
-              )}
-            </section>
+            <ParallaxPanel run={shown} depthBusy={depthBusy} onComputeDepth={computeDepth} />
             <MapPlane src={shown.final} anchorX={shown.anchorX} />
             <div className="grid grid-cols-2 gap-3">
               <figure>
