@@ -24,8 +24,11 @@ to the landmark's own range, and a WebGL view displaces each pixel by its depth 
 small turn (`yaw`) or tilt (`pitch`), moving the amber rim with it, so the flat picture reads
 as a miniature that turns a few degrees with the map. `amplitude` is how far the nearest
 point moves at full turn (a few percent is the honest range; beyond it the gaps show),
-`lightAngle` and `rim` drive the relighting, `squash` the shadow under its feet, "sway"
-animates it as if walking by, and the depth map can be shown instead of the picture. Runs
+`lightAngle` and `rim` drive the relighting, `squash` the shadow under its feet, "moves on
+its own" animates the turn, the tilt, both or the light, and the depth map can be shown
+instead of the picture. The presets (`src/web/presets.ts`) go from Flat to Too much, so the
+right amount is found by comparing neighbours; the sprite is shown at the sheet size and at
+the two token sizes, because the small one is the one that matters. Runs
 made before this have a "Compute depth" button.
 
 Every run lands in `runs/<time>-<place>/` with `spec.json`, `prompt.txt`, `negative.txt`,
