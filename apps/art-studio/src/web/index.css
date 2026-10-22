@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0a0b0d;
+  --color-surface: #1b1c20;
+  --color-raised: #27282e;
+  --color-label: #f7f8f8;
+  --color-secondary: #b4b7be;
+  --color-tertiary: #8a8f98;
+  --color-accent: #ffb224;
+}
+
+textarea,
+input,
+select {
+  @apply w-full rounded-md border border-white/10 bg-raised px-2.5 py-1.5 text-sm text-label outline-none focus:border-accent/60;
+}
+textarea {
+  @apply leading-snug;
+}
+label {
+  @apply mb-1 block text-[11px] font-medium uppercase tracking-wide text-tertiary;
+}

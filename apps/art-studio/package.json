@@ -1,0 +1,30 @@
+{
+  "name": "@thataway/art-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local page for tuning the illustration prompt on the same engine the art worker uses",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/server/dev.ts",
+    "dev:api": "bun run --watch src/server/index.ts",
+    "dev:web": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json"
+  },
+  "dependencies": {
+    "@thataway/db": "workspace:*",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@thataway/tsconfig": "workspace:*",
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.0.0"
+  }
+}

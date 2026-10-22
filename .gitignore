@@ -3,6 +3,8 @@
 .env
 .env.local
 .turbo/
+apps/art-studio/dist/
+apps/art-studio/runs/
 apps/art-worker/.env
 dist/
 logs/
