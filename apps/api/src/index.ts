@@ -10,6 +10,7 @@ import { AppError, TooManyRequestsError } from "@/utils/errors";
 import logger from "@/utils/logger";
 import { getBoss, stopBoss } from "@/utils/pgBoss";
 import { registerFillTile } from "@/workers/fillTile";
+import pkg from "../package.json" with { type: "json" };
 
 const { port, postgresUrl, wikimediaContact } = getConfig();
 
@@ -26,7 +27,19 @@ await registerFillTile(boss);
 logger.info("pg-boss started");
 
 const app = new Elysia({ name: "thataway-api" })
-  .use(openapi())
+  .use(
+    openapi({
+      // The served document is for browsing; the contract the clients are generated from is
+      // packages/api-client/spec.yaml
+      documentation: {
+        info: {
+          title: "Thataway API",
+          description: "Places worth walking to around a point, most notable first.",
+          version: pkg.version,
+        },
+      },
+    }),
+  )
   .use(cors())
   .error(({ error, path, request, set }) => {
     if (error instanceof ElysiaStatus) return error;

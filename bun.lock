@@ -12,7 +12,7 @@
     },
     "apps/api": {
       "name": "@thataway/api",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@elysia/cors": "2.0.0-beta.1",
         "@elysia/openapi": "2.0.0-beta.4",
@@ -30,6 +30,10 @@
         "@types/pg": "^8.23.1",
         "typescript": "^7.0.2",
       },
+    },
+    "packages/api-client": {
+      "name": "@thataway/api-client",
+      "version": "0.1.1",
     },
     "packages/db": {
       "name": "@thataway/db",
@@ -201,6 +205,8 @@
     "@so-ric/colorspace": ["@so-ric/colorspace@1.1.6", "", { "dependencies": { "color": "^5.0.2", "text-hex": "1.0.x" } }, "sha512-/KiKkpHNOBgkFJwu9sh48LkHSMYGyuTcSFK/qMBdnOAlrRJzRSXAOFB5qwzaVQuDl8wAvHVMkaASQDReTahxuw=="],
 
     "@thataway/api": ["@thataway/api@workspace:apps/api"],
+
+    "@thataway/api-client": ["@thataway/api-client@workspace:packages/api-client"],
 
     "@thataway/db": ["@thataway/db@workspace:packages/db"],
 

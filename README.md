@@ -13,7 +13,8 @@ curl 'localhost:3040/places?lat=50.0875&lon=14.4213'
 ```
 
 `GET /places?lat&lon&radius=2500&limit=60` answers `{ warming, places: [...] }`; while tiles
-around the point are still being filled, `warming` is true and the list may be short. OpenAPI
+around the point are still being filled, `warming` is true and the list may be short. The contract is
+`packages/api-client/spec.yaml` (the iOS client is generated from it); the served document
 lives at `/openapi`. Warm a city ahead of time with
 `bun run warm -- --bbox 50.03,14.35,50.12,14.50`.
 

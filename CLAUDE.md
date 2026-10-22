@@ -7,11 +7,12 @@ do what `~/Sites/playdamnit` does.
 
 Bun workspaces + Turborepo. Use **Bun** only (never npm, node, pnpm or yarn).
 
-| Path                | Package              | What                                                      |
-| ------------------- | -------------------- | --------------------------------------------------------- |
-| `apps/api`          | `@thataway/api`      | Elysia 2 HTTP API (Bun) with the in-process tile worker   |
-| `packages/db`       | `@thataway/db`       | Drizzle schema, enums, migrations, migrator, job contract |
-| `packages/tsconfig` | `@thataway/tsconfig` | Shared tsconfig for Bun services                          |
+| Path                  | Package                | What                                                               |
+| --------------------- | ---------------------- | ------------------------------------------------------------------ |
+| `apps/api`            | `@thataway/api`        | Elysia 2 HTTP API (Bun) with the in-process tile worker            |
+| `packages/db`         | `@thataway/db`         | Drizzle schema, enums, migrations, migrator, job contract          |
+| `packages/api-client` | `@thataway/api-client` | `spec.yaml`: the OpenAPI contract the iOS client is generated from |
+| `packages/tsconfig`   | `@thataway/tsconfig`   | Shared tsconfig for Bun services                                   |
 
 Workspace packages are imported by name (`@thataway/db/schema`, `@thataway/db/jobs`, ...), never
 with relative paths across packages.

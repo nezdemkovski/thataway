@@ -1,0 +1,194 @@
+# The API contract, maintained by hand with every route change (the routes carry the same
+# typebox schemas, and apps/api/tests/openapi.test.ts keeps the two from drifting). The iOS app
+# copies this file and generates its client from it: ~/Apps/Thataway/scripts/sync-openapi.sh.
+openapi: 3.0.3
+info:
+  title: Thataway API
+  description: Places worth walking to around a point, most notable first.
+  version: 0.1.1
+servers:
+  - url: https://thataway.nezdemkovski.cloud
+tags:
+  - name: places
+  - name: health
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags: [health]
+      summary: The service and the database behind it
+      responses:
+        "200":
+          description: Up, and the database answers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: Up, but the database does not answer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /places:
+    get:
+      operationId: getPlaces
+      tags: [places]
+      summary: Places around a point, most notable first
+      description: >-
+        Asks for the geohash tile under the point and its neighbours. Tiles nobody has visited
+        yet are filled on the spot, within a few seconds; when that takes longer the answer is
+        partial and `warming` is true: ask again in a few seconds.
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+        - name: lon
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+        - name: radius
+          in: query
+          description: Metres around the point
+          schema:
+            type: integer
+            minimum: 100
+            maximum: 10000
+            default: 2500
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 60
+      responses:
+        "200":
+          description: The places, ranked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlacesResult"
+        "400":
+          description: A parameter is missing or out of range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many requests; wait for Retry-After seconds
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Something broke on our side
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    HealthStatus:
+      type: string
+      enum: [ok, degraded]
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/HealthStatus"
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          example: Bad Request
+        message:
+          type: string
+    PlaceKind:
+      description: What the place looks like on the map; the app draws a glyph per kind
+      type: string
+      enum: [church, tower, bridge, museum, park, monument, square, castle, place]
+    Place:
+      type: object
+      required: [id, name, kind, latitude, longitude, distance, sitelinks, heritage, views]
+      properties:
+        id:
+          type: string
+          description: Wikidata item id
+          example: Q190807
+        name:
+          type: string
+          example: Charles Bridge
+        description:
+          type: string
+          nullable: true
+          description: Wikidata's one-line description
+          example: historic bridge in Prague, Czech Republic
+        kind:
+          $ref: "#/components/schemas/PlaceKind"
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        distance:
+          type: integer
+          description: Metres from the query point
+        sitelinks:
+          type: integer
+          description: Language editions with an article, the fame that needs no traffic
+        heritage:
+          type: boolean
+          description: Listed as cultural heritage
+        views:
+          type: integer
+          description: English Wikipedia page views over the last few days
+        enwikiTitle:
+          type: string
+          nullable: true
+          description: Title of the English Wikipedia article, when there is one
+        imageUrl:
+          type: string
+          nullable: true
+          description: A 640 px thumbnail from Wikimedia Commons
+        imageAuthor:
+          type: string
+          nullable: true
+          description: Who to credit for the image
+        imageLicense:
+          type: string
+          nullable: true
+          description: The image's licence, as Commons names it
+          example: CC BY-SA 4.0
+        artUrl:
+          type: string
+          nullable: true
+          description: The generated illustration, once there is one
+    PlacesResult:
+      type: object
+      required: [warming, places]
+      properties:
+        warming:
+          type: boolean
+          description: Tiles around the point are still being filled; ask again in a few seconds
+        places:
+          type: array
+          items:
+            $ref: "#/components/schemas/Place"
